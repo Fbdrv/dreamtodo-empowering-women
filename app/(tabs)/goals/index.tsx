@@ -20,10 +20,17 @@ import Colors from '@/constants/colors';
 import { useApp } from '@/providers/AppProvider';
 import { GOAL_COLORS, GOAL_EMOJIS } from '@/mocks/data';
 import { Goal } from '@/types';
+import HabitCard from '@/components/HabitCard';
+
+type ActiveTab = 'goals' | 'habits';
 
 export default function GoalsScreen() {
-  const { goals, challenges, addGoal, updateGoal, deleteGoal } = useApp();
+  const { goals, challenges, habits, addGoal, updateGoal, deleteGoal, addHabit, toggleHabitComplete } = useApp();
+  const [activeTab, setActiveTab] = useState<ActiveTab>('goals');
   const [showAddGoal, setShowAddGoal] = useState(false);
+  const [showAddHabit, setShowAddHabit] = useState(false);
+  const [newHabitTitle, setNewHabitTitle] = useState('');
+  const [newHabitFrequency, setNewHabitFrequency] = useState<'daily' | 'weekly'>('daily');
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [newGoalDesc, setNewGoalDesc] = useState('');
@@ -44,6 +51,13 @@ export default function GoalsScreen() {
   };
 
   const handleOpenAdd = () => {
+    if (activeTab === 'habits') {
+      setNewHabitTitle('');
+      setNewHabitFrequency('daily');
+      setShowAddHabit(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      return;
+    }
     if (goals.length >= 4) {
       Alert.alert('Limit Reached', 'You can have a maximum of 4 goals. Delete one to add another.');
       return;
@@ -51,6 +65,15 @@ export default function GoalsScreen() {
     resetForm();
     setShowAddGoal(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handleSaveHabit = () => {
+    if (!newHabitTitle.trim()) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    addHabit(newHabitTitle.trim(), newHabitFrequency);
+    setShowAddHabit(false);
+    setNewHabitTitle('');
+    setNewHabitFrequency('daily');
   };
 
   const handleOpenEdit = (goal: Goal) => {
@@ -108,18 +131,22 @@ export default function GoalsScreen() {
     return challenges.filter(c => c.goalId === goalId && c.isCompleted).length;
   };
 
+  const addBtnDisabled = activeTab === 'goals' && goals.length >= 4;
+
   return (
     <View style={styles.container}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <Animated.View style={[styles.flex, { opacity: fadeAnim }]}>
           <View style={styles.header}>
             <View>
-              <Text style={styles.title}>My Goals</Text>
-              <Text style={styles.subtitle}>{goals.length}/4 goals created</Text>
+              <Text style={styles.title}>Goals & Habits</Text>
+              <Text style={styles.subtitle}>
+                {activeTab === 'goals' ? `${goals.length}/4 goals created` : `${habits.length} habits tracked`}
+              </Text>
             </View>
             <TouchableOpacity
-              testID="add-goal-btn"
-              style={[styles.addBtn, goals.length >= 4 && styles.addBtnDisabled]}
+              testID="add-btn"
+              style={[styles.addBtn, addBtnDisabled && styles.addBtnDisabled]}
               onPress={handleOpenAdd}
               activeOpacity={0.7}
             >
@@ -127,51 +154,86 @@ export default function GoalsScreen() {
             </TouchableOpacity>
           </View>
 
+          <View style={styles.tabBar}>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'goals' && styles.tabActive]}
+              onPress={() => setActiveTab('goals')}
+            >
+              <Text style={[styles.tabText, activeTab === 'goals' && styles.tabTextActive]}>Goals</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'habits' && styles.tabActive]}
+              onPress={() => setActiveTab('habits')}
+            >
+              <Text style={[styles.tabText, activeTab === 'habits' && styles.tabTextActive]}>Habits</Text>
+            </TouchableOpacity>
+          </View>
+
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-            {goals.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyEmoji}>🎯</Text>
-                <Text style={styles.emptyTitle}>No goals yet</Text>
-                <Text style={styles.emptySubtitle}>Create up to 4 goals to focus your journey</Text>
-                <TouchableOpacity style={styles.emptyBtn} onPress={handleOpenAdd}>
-                  <Plus size={18} color={Colors.white} />
-                  <Text style={styles.emptyBtnText}>Create First Goal</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={styles.goalsList}>
-                {goals.map(goal => {
-                  const total = getChallengeCount(goal.id);
-                  const completed = getCompletedCount(goal.id);
-                  const progress = total > 0 ? completed / total : 0;
-                  
-                  return (
-                    <TouchableOpacity 
-                      key={goal.id} 
-                      style={styles.goalCard}
-                      onPress={() => handleOpenEdit(goal)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={[styles.goalIcon, { backgroundColor: goal.color + '20' }]}>
-                        <Text style={styles.goalEmoji}>{goal.emoji}</Text>
-                      </View>
-                      <View style={styles.goalContent}>
-                        <Text style={styles.goalTitle}>{goal.title}</Text>
-                        {goal.description && (
-                          <Text style={styles.goalDesc} numberOfLines={1}>{goal.description}</Text>
-                        )}
-                        <View style={styles.goalStats}>
-                          <View style={styles.progressBarSmall}>
-                            <View style={[styles.progressFillSmall, { width: `${progress * 100}%`, backgroundColor: goal.color }]} />
-                          </View>
-                          <Text style={styles.goalStatsText}>{completed}/{total} challenges</Text>
+            {activeTab === 'goals' ? (
+              goals.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyEmoji}>🎯</Text>
+                  <Text style={styles.emptyTitle}>No goals yet</Text>
+                  <Text style={styles.emptySubtitle}>Create up to 4 goals to focus your journey</Text>
+                  <TouchableOpacity style={styles.emptyBtn} onPress={handleOpenAdd}>
+                    <Plus size={18} color={Colors.white} />
+                    <Text style={styles.emptyBtnText}>Create First Goal</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.goalsList}>
+                  {goals.map(goal => {
+                    const total = getChallengeCount(goal.id);
+                    const completed = getCompletedCount(goal.id);
+                    const progress = total > 0 ? completed / total : 0;
+                    
+                    return (
+                      <TouchableOpacity 
+                        key={goal.id} 
+                        style={styles.goalCard}
+                        onPress={() => handleOpenEdit(goal)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.goalIcon, { backgroundColor: goal.color + '20' }]}>
+                          <Text style={styles.goalEmoji}>{goal.emoji}</Text>
                         </View>
-                      </View>
-                      <ChevronRight size={20} color={Colors.textMuted} />
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+                        <View style={styles.goalContent}>
+                          <Text style={styles.goalTitle}>{goal.title}</Text>
+                          {goal.description ? (
+                            <Text style={styles.goalDesc} numberOfLines={1}>{goal.description}</Text>
+                          ) : null}
+                          <View style={styles.goalStats}>
+                            <View style={styles.progressBarSmall}>
+                              <View style={[styles.progressFillSmall, { width: `${progress * 100}%`, backgroundColor: goal.color }]} />
+                            </View>
+                            <Text style={styles.goalStatsText}>{completed}/{total} challenges</Text>
+                          </View>
+                        </View>
+                        <ChevronRight size={20} color={Colors.textMuted} />
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )
+            ) : (
+              habits.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyEmoji}>✨</Text>
+                  <Text style={styles.emptyTitle}>No habits yet</Text>
+                  <Text style={styles.emptySubtitle}>Build small daily or weekly habits to grow</Text>
+                  <TouchableOpacity style={styles.emptyBtn} onPress={handleOpenAdd}>
+                    <Plus size={18} color={Colors.white} />
+                    <Text style={styles.emptyBtnText}>Create First Habit</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.goalsList}>
+                  {habits.map(habit => (
+                    <HabitCard key={habit.id} habit={habit} onToggle={toggleHabitComplete} />
+                  ))}
+                </View>
+              )
             )}
             <View style={{ height: 20 }} />
           </ScrollView>
@@ -268,6 +330,57 @@ export default function GoalsScreen() {
           </KeyboardAvoidingView>
         </Pressable>
       </Modal>
+      <Modal visible={showAddHabit} animationType="slide" transparent>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowAddHabit(false)}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.modalContainer}
+          >
+            <Pressable style={styles.modalContent} onPress={() => {}}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>New Habit</Text>
+                <TouchableOpacity onPress={() => setShowAddHabit(false)}>
+                  <X size={22} color={Colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+
+              <TextInput
+                style={styles.modalInput}
+                placeholder="What habit do you want to build?"
+                placeholderTextColor={Colors.textMuted}
+                value={newHabitTitle}
+                onChangeText={setNewHabitTitle}
+                autoFocus
+                maxLength={60}
+              />
+
+              <Text style={styles.modalLabel}>Frequency</Text>
+              <View style={styles.freqRow}>
+                <TouchableOpacity
+                  style={[styles.freqPill, newHabitFrequency === 'daily' && styles.freqPillActive]}
+                  onPress={() => setNewHabitFrequency('daily')}
+                >
+                  <Text style={[styles.freqPillText, newHabitFrequency === 'daily' && styles.freqPillTextActive]}>Daily</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.freqPill, newHabitFrequency === 'weekly' && styles.freqPillActive]}
+                  onPress={() => setNewHabitFrequency('weekly')}
+                >
+                  <Text style={[styles.freqPillText, newHabitFrequency === 'weekly' && styles.freqPillTextActive]}>Weekly</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.modalBtn, !newHabitTitle.trim() && styles.modalBtnDisabled]}
+                onPress={handleSaveHabit}
+                disabled={!newHabitTitle.trim()}
+              >
+                <Text style={styles.modalBtnText}>Create Habit</Text>
+              </TouchableOpacity>
+            </Pressable>
+          </KeyboardAvoidingView>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -311,6 +424,36 @@ const styles = StyleSheet.create({
   },
   addBtnDisabled: {
     opacity: 0.5,
+  },
+  tabBar: {
+    flexDirection: 'row' as const,
+    marginHorizontal: 20,
+    backgroundColor: Colors.cardAlt,
+    borderRadius: 12,
+    padding: 3,
+    marginBottom: 4,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center' as const,
+  },
+  tabActive: {
+    backgroundColor: Colors.white,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.textMuted,
+  },
+  tabTextActive: {
+    color: Colors.text,
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -540,5 +683,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700' as const,
     color: Colors.white,
+  },
+  freqRow: {
+    flexDirection: 'row' as const,
+    gap: 10,
+    marginBottom: 24,
+  },
+  freqPill: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: Colors.cardAlt,
+    alignItems: 'center' as const,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  freqPillActive: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primarySoft,
+  },
+  freqPillText: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: Colors.textMuted,
+  },
+  freqPillTextActive: {
+    color: Colors.primary,
   },
 });
