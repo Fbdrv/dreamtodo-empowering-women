@@ -75,9 +75,18 @@ export const [AppProvider, useApp] = createContextHook(() => {
           const parsed = JSON.parse(stored) as Partial<AppState>;
           console.log('[app] Loaded local state for user:', user?.id);
           const defaultState = getDefaultState();
+
+          const migratedChallenges = (parsed.challenges ?? []).filter(
+            (c: any) => c.goalId && typeof c.goalId === 'string' && !c.type
+          ) as Challenge[];
+          if (migratedChallenges.length !== (parsed.challenges ?? []).length) {
+            console.log('[app] Migrated out', (parsed.challenges ?? []).length - migratedChallenges.length, 'old-format challenges');
+          }
+
           return {
             ...defaultState,
             ...parsed,
+            challenges: migratedChallenges,
             profile: { ...defaultState.profile, ...parsed.profile },
           };
         }
