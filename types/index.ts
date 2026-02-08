@@ -34,24 +34,44 @@ export interface Habit {
   isActive: boolean;
 }
 
+export interface Goal {
+  id: string;
+  title: string;
+  description?: string;
+  color: string;
+  emoji: string;
+  createdAt: string;
+}
+
 export interface Challenge {
   id: string;
   title: string;
   description: string;
+  goalId: string;
   duration: string;
-  focusArea: FocusArea;
-  type: 'main' | 'bonus';
   isCompleted: boolean;
-  affirmation: string;
+  completedAt?: string;
+  createdAt: string;
 }
 
-export interface Badge {
+export interface BadgeDefinition {
   id: string;
   title: string;
   description: string;
   emoji: string;
-  earnedAt?: string;
-  isEarned: boolean;
+  condition: BadgeCondition;
+}
+
+export type BadgeCondition = 
+  | { type: 'first_challenge' }
+  | { type: 'challenges_completed'; count: number }
+  | { type: 'streak'; days: number }
+  | { type: 'goals_created'; count: number }
+  | { type: 'habits_completed'; count: number };
+
+export interface EarnedBadge {
+  badgeId: string;
+  earnedAt: string;
 }
 
 export interface CommunityWin {

@@ -11,118 +11,166 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Plus, Target, Flame, X } from 'lucide-react-native';
+import { Plus, X, Trash2, ChevronRight } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import Colors from '@/constants/colors';
 import { useApp } from '@/providers/AppProvider';
-import { FOCUS_AREAS } from '@/mocks/data';
-import { FocusArea } from '@/types';
-import DreamCard from '@/components/DreamCard';
-import HabitCard from '@/components/HabitCard';
+import { GOAL_COLORS, GOAL_EMOJIS } from '@/mocks/data';
+import { Goal } from '@/types';
 
 export default function GoalsScreen() {
-  const { dreams, habits, toggleHabitComplete, addDream, addHabit } = useApp();
-  const [activeTab, setActiveTab] = useState<'dreams' | 'habits'>('dreams');
-  const [showAddDream, setShowAddDream] = useState(false);
-  const [showAddHabit, setShowAddHabit] = useState(false);
-  const [newDreamTitle, setNewDreamTitle] = useState('');
-  const [newDreamDesc, setNewDreamDesc] = useState('');
-  const [newDreamArea, setNewDreamArea] = useState<FocusArea>('confidence');
-  const [newHabitTitle, setNewHabitTitle] = useState('');
-  const [newHabitFreq, setNewHabitFreq] = useState<'daily' | 'weekly'>('daily');
+  const { goals, challenges, addGoal, updateGoal, deleteGoal } = useApp();
+  const [showAddGoal, setShowAddGoal] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+  const [newGoalTitle, setNewGoalTitle] = useState('');
+  const [newGoalDesc, setNewGoalDesc] = useState('');
+  const [selectedColor, setSelectedColor] = useState(GOAL_COLORS[0]);
+  const [selectedEmoji, setSelectedEmoji] = useState(GOAL_EMOJIS[0]);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
   }, [fadeAnim]);
 
-  const handleAddDream = () => {
-    if (!newDreamTitle.trim()) return;
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    addDream(newDreamTitle.trim(), newDreamDesc.trim(), newDreamArea);
-    setNewDreamTitle('');
-    setNewDreamDesc('');
-    setShowAddDream(false);
+  const resetForm = () => {
+    setNewGoalTitle('');
+    setNewGoalDesc('');
+    setSelectedColor(GOAL_COLORS[0]);
+    setSelectedEmoji(GOAL_EMOJIS[0]);
+    setEditingGoal(null);
   };
 
-  const handleAddHabit = () => {
-    if (!newHabitTitle.trim()) return;
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    addHabit(newHabitTitle.trim(), newHabitFreq);
-    setNewHabitTitle('');
-    setShowAddHabit(false);
+  const handleOpenAdd = () => {
+    if (goals.length >= 4) {
+      Alert.alert('Limit Reached', 'You can have a maximum of 4 goals. Delete one to add another.');
+      return;
+    }
+    resetForm();
+    setShowAddGoal(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const activeHabits = habits.filter(h => h.isActive);
+  const handleOpenEdit = (goal: Goal) => {
+    setEditingGoal(goal);
+    setNewGoalTitle(goal.title);
+    setNewGoalDesc(goal.description || '');
+    setSelectedColor(goal.color);
+    setSelectedEmoji(goal.emoji);
+    setShowAddGoal(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handleSaveGoal = () => {
+    if (!newGoalTitle.trim()) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    
+    if (editingGoal) {
+      updateGoal(editingGoal.id, newGoalTitle.trim(), newGoalDesc.trim(), selectedColor, selectedEmoji);
+    } else {
+      addGoal(newGoalTitle.trim(), newGoalDesc.trim(), selectedColor, selectedEmoji);
+    }
+    
+    setShowAddGoal(false);
+    resetForm();
+  };
+
+  const handleDeleteGoal = (goal: Goal) => {
+    const challengeCount = challenges.filter(c => c.goalId === goal.id).length;
+    const message = challengeCount > 0 
+      ? `This will also delete ${challengeCount} challenge${challengeCount > 1 ? 's' : ''} linked to this goal.`
+      : 'Are you sure you want to delete this goal?';
+    
+    Alert.alert(
+      'Delete Goal',
+      message,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            deleteGoal(goal.id);
+          }
+        },
+      ]
+    );
+  };
+
+  const getChallengeCount = (goalId: string) => {
+    return challenges.filter(c => c.goalId === goalId).length;
+  };
+
+  const getCompletedCount = (goalId: string) => {
+    return challenges.filter(c => c.goalId === goalId && c.isCompleted).length;
+  };
 
   return (
     <View style={styles.container}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <Animated.View style={[styles.flex, { opacity: fadeAnim }]}>
           <View style={styles.header}>
-            <Text style={styles.title}>Goals & Habits</Text>
+            <View>
+              <Text style={styles.title}>My Goals</Text>
+              <Text style={styles.subtitle}>{goals.length}/4 goals created</Text>
+            </View>
             <TouchableOpacity
-              testID="add-btn"
-              style={styles.addBtn}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                if (activeTab === 'dreams') { setShowAddDream(true); } else { setShowAddHabit(true); }
-              }}
+              testID="add-goal-btn"
+              style={[styles.addBtn, goals.length >= 4 && styles.addBtnDisabled]}
+              onPress={handleOpenAdd}
               activeOpacity={0.7}
             >
               <Plus size={20} color={Colors.white} />
             </TouchableOpacity>
           </View>
 
-          <View style={styles.tabRow}>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'dreams' && styles.tabActive]}
-              onPress={() => setActiveTab('dreams')}
-            >
-              <Target size={16} color={activeTab === 'dreams' ? Colors.primary : Colors.textMuted} />
-              <Text style={[styles.tabText, activeTab === 'dreams' && styles.tabTextActive]}>Dreams</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'habits' && styles.tabActive]}
-              onPress={() => setActiveTab('habits')}
-            >
-              <Flame size={16} color={activeTab === 'habits' ? Colors.primary : Colors.textMuted} />
-              <Text style={[styles.tabText, activeTab === 'habits' && styles.tabTextActive]}>Habits</Text>
-            </TouchableOpacity>
-          </View>
-
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-            {activeTab === 'dreams' ? (
-              <View style={styles.dreamGrid}>
-                {dreams.length === 0 ? (
-                  <View style={styles.emptyState}>
-                    <Text style={styles.emptyEmoji}>🌙</Text>
-                    <Text style={styles.emptyTitle}>No dreams yet</Text>
-                    <Text style={styles.emptySubtitle}>Tap + to add your first dream goal</Text>
-                  </View>
-                ) : (
-                  dreams.map(dream => (
-                    <View key={dream.id} style={styles.dreamGridItem}>
-                      <DreamCard dream={dream} />
-                    </View>
-                  ))
-                )}
+            {goals.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyEmoji}>🎯</Text>
+                <Text style={styles.emptyTitle}>No goals yet</Text>
+                <Text style={styles.emptySubtitle}>Create up to 4 goals to focus your journey</Text>
+                <TouchableOpacity style={styles.emptyBtn} onPress={handleOpenAdd}>
+                  <Plus size={18} color={Colors.white} />
+                  <Text style={styles.emptyBtnText}>Create First Goal</Text>
+                </TouchableOpacity>
               </View>
             ) : (
-              <View style={styles.habitsList}>
-                {activeHabits.length === 0 ? (
-                  <View style={styles.emptyState}>
-                    <Text style={styles.emptyEmoji}>🌱</Text>
-                    <Text style={styles.emptyTitle}>No habits yet</Text>
-                    <Text style={styles.emptySubtitle}>Start small — add your first habit</Text>
-                  </View>
-                ) : (
-                  activeHabits.map(habit => (
-                    <HabitCard key={habit.id} habit={habit} onToggle={toggleHabitComplete} />
-                  ))
-                )}
+              <View style={styles.goalsList}>
+                {goals.map(goal => {
+                  const total = getChallengeCount(goal.id);
+                  const completed = getCompletedCount(goal.id);
+                  const progress = total > 0 ? completed / total : 0;
+                  
+                  return (
+                    <TouchableOpacity 
+                      key={goal.id} 
+                      style={styles.goalCard}
+                      onPress={() => handleOpenEdit(goal)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.goalIcon, { backgroundColor: goal.color + '20' }]}>
+                        <Text style={styles.goalEmoji}>{goal.emoji}</Text>
+                      </View>
+                      <View style={styles.goalContent}>
+                        <Text style={styles.goalTitle}>{goal.title}</Text>
+                        {goal.description && (
+                          <Text style={styles.goalDesc} numberOfLines={1}>{goal.description}</Text>
+                        )}
+                        <View style={styles.goalStats}>
+                          <View style={styles.progressBarSmall}>
+                            <View style={[styles.progressFillSmall, { width: `${progress * 100}%`, backgroundColor: goal.color }]} />
+                          </View>
+                          <Text style={styles.goalStatsText}>{completed}/{total} challenges</Text>
+                        </View>
+                      </View>
+                      <ChevronRight size={20} color={Colors.textMuted} />
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             )}
             <View style={{ height: 20 }} />
@@ -130,105 +178,91 @@ export default function GoalsScreen() {
         </Animated.View>
       </SafeAreaView>
 
-      <Modal visible={showAddDream} animationType="slide" transparent>
-        <Pressable style={styles.modalOverlay} onPress={() => setShowAddDream(false)}>
+      <Modal visible={showAddGoal} animationType="slide" transparent>
+        <Pressable style={styles.modalOverlay} onPress={() => { setShowAddGoal(false); resetForm(); }}>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={styles.modalContainer}
           >
             <Pressable style={styles.modalContent} onPress={() => {}}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>New Dream</Text>
-                <TouchableOpacity onPress={() => setShowAddDream(false)}>
-                  <X size={22} color={Colors.textMuted} />
-                </TouchableOpacity>
+                <Text style={styles.modalTitle}>{editingGoal ? 'Edit Goal' : 'New Goal'}</Text>
+                <View style={styles.modalHeaderRight}>
+                  {editingGoal && (
+                    <TouchableOpacity 
+                      onPress={() => { setShowAddGoal(false); handleDeleteGoal(editingGoal); }}
+                      style={styles.deleteBtn}
+                    >
+                      <Trash2 size={20} color={Colors.error} />
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity onPress={() => { setShowAddGoal(false); resetForm(); }}>
+                    <X size={22} color={Colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
               </View>
+
               <TextInput
                 style={styles.modalInput}
-                placeholder="What's your dream?"
+                placeholder="What's your goal?"
                 placeholderTextColor={Colors.textMuted}
-                value={newDreamTitle}
-                onChangeText={setNewDreamTitle}
+                value={newGoalTitle}
+                onChangeText={setNewGoalTitle}
                 autoFocus
+                maxLength={50}
               />
               <TextInput
                 style={[styles.modalInput, styles.modalTextArea]}
-                placeholder="Describe it briefly..."
+                placeholder="Add a description (optional)"
                 placeholderTextColor={Colors.textMuted}
-                value={newDreamDesc}
-                onChangeText={setNewDreamDesc}
+                value={newGoalDesc}
+                onChangeText={setNewGoalDesc}
                 multiline
-                numberOfLines={3}
+                numberOfLines={2}
+                maxLength={150}
               />
-              <Text style={styles.modalLabel}>Focus Area</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.areaScroll}>
-                {FOCUS_AREAS.map(area => (
+
+              <Text style={styles.modalLabel}>Pick an Emoji</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.emojiScroll}>
+                {GOAL_EMOJIS.map(emoji => (
                   <TouchableOpacity
-                    key={area.id}
-                    style={[styles.areaPill, newDreamArea === area.id && styles.areaPillActive]}
-                    onPress={() => setNewDreamArea(area.id)}
+                    key={emoji}
+                    style={[styles.emojiPill, selectedEmoji === emoji && styles.emojiPillActive]}
+                    onPress={() => setSelectedEmoji(emoji)}
                   >
-                    <Text style={styles.areaPillEmoji}>{area.emoji}</Text>
-                    <Text style={[styles.areaPillText, newDreamArea === area.id && styles.areaPillTextActive]}>
-                      {area.label}
-                    </Text>
+                    <Text style={styles.emojiText}>{emoji}</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
-              <TouchableOpacity
-                style={[styles.modalBtn, !newDreamTitle.trim() && styles.modalBtnDisabled]}
-                onPress={handleAddDream}
-                disabled={!newDreamTitle.trim()}
-              >
-                <Text style={styles.modalBtnText}>Create Dream</Text>
-              </TouchableOpacity>
-            </Pressable>
-          </KeyboardAvoidingView>
-        </Pressable>
-      </Modal>
 
-      <Modal visible={showAddHabit} animationType="slide" transparent>
-        <Pressable style={styles.modalOverlay} onPress={() => setShowAddHabit(false)}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={styles.modalContainer}
-          >
-            <Pressable style={styles.modalContent} onPress={() => {}}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>New Habit</Text>
-                <TouchableOpacity onPress={() => setShowAddHabit(false)}>
-                  <X size={22} color={Colors.textMuted} />
-                </TouchableOpacity>
+              <Text style={styles.modalLabel}>Pick a Color</Text>
+              <View style={styles.colorRow}>
+                {GOAL_COLORS.map(color => (
+                  <TouchableOpacity
+                    key={color}
+                    style={[
+                      styles.colorDot,
+                      { backgroundColor: color },
+                      selectedColor === color && styles.colorDotActive,
+                    ]}
+                    onPress={() => setSelectedColor(color)}
+                  />
+                ))}
               </View>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="What habit do you want to build?"
-                placeholderTextColor={Colors.textMuted}
-                value={newHabitTitle}
-                onChangeText={setNewHabitTitle}
-                autoFocus
-              />
-              <Text style={styles.modalLabel}>Frequency</Text>
-              <View style={styles.freqRow}>
-                <TouchableOpacity
-                  style={[styles.freqBtn, newHabitFreq === 'daily' && styles.freqBtnActive]}
-                  onPress={() => setNewHabitFreq('daily')}
-                >
-                  <Text style={[styles.freqBtnText, newHabitFreq === 'daily' && styles.freqBtnTextActive]}>Daily</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.freqBtn, newHabitFreq === 'weekly' && styles.freqBtnActive]}
-                  onPress={() => setNewHabitFreq('weekly')}
-                >
-                  <Text style={[styles.freqBtnText, newHabitFreq === 'weekly' && styles.freqBtnTextActive]}>Weekly</Text>
-                </TouchableOpacity>
+
+              <View style={styles.previewCard}>
+                <View style={[styles.previewIcon, { backgroundColor: selectedColor + '20' }]}>
+                  <Text style={styles.previewEmoji}>{selectedEmoji}</Text>
+                </View>
+                <Text style={styles.previewTitle}>{newGoalTitle || 'Your goal title'}</Text>
               </View>
+
               <TouchableOpacity
-                style={[styles.modalBtn, !newHabitTitle.trim() && styles.modalBtnDisabled]}
-                onPress={handleAddHabit}
-                disabled={!newHabitTitle.trim()}
+                style={[styles.modalBtn, !newGoalTitle.trim() && styles.modalBtnDisabled]}
+                onPress={handleSaveGoal}
+                disabled={!newGoalTitle.trim()}
               >
-                <Text style={styles.modalBtnText}>Create Habit</Text>
+                <Text style={styles.modalBtnText}>{editingGoal ? 'Save Changes' : 'Create Goal'}</Text>
               </TouchableOpacity>
             </Pressable>
           </KeyboardAvoidingView>
@@ -262,6 +296,11 @@ const styles = StyleSheet.create({
     fontWeight: '800' as const,
     color: Colors.text,
   },
+  subtitle: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
   addBtn: {
     width: 40,
     height: 40,
@@ -270,65 +309,108 @@ const styles = StyleSheet.create({
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   },
-  tabRow: {
-    flexDirection: 'row' as const,
-    paddingHorizontal: 20,
-    gap: 8,
-    marginBottom: 8,
-  },
-  tab: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 24,
-    backgroundColor: Colors.cardAlt,
-  },
-  tabActive: {
-    backgroundColor: Colors.primarySoft,
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.textMuted,
-  },
-  tabTextActive: {
-    color: Colors.primary,
+  addBtnDisabled: {
+    opacity: 0.5,
   },
   scrollContent: {
     paddingHorizontal: 20,
     paddingTop: 12,
   },
-  dreamGrid: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
-    gap: 12,
-  },
-  dreamGridItem: {
-    width: '100%',
-  },
-  habitsList: {
-    gap: 10,
-  },
   emptyState: {
     alignItems: 'center' as const,
-    paddingTop: 60,
+    paddingTop: 80,
     paddingBottom: 40,
   },
   emptyEmoji: {
-    fontSize: 48,
+    fontSize: 56,
     marginBottom: 16,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700' as const,
     color: Colors.text,
-    marginBottom: 6,
+    marginBottom: 8,
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: 15,
     color: Colors.textSecondary,
+    textAlign: 'center' as const,
+    marginBottom: 24,
+  },
+  emptyBtn: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 24,
+  },
+  emptyBtnText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: Colors.white,
+  },
+  goalsList: {
+    gap: 12,
+  },
+  goalCard: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: 16,
+    gap: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  goalIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  goalEmoji: {
+    fontSize: 24,
+  },
+  goalContent: {
+    flex: 1,
+  },
+  goalTitle: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: Colors.text,
+    marginBottom: 2,
+  },
+  goalDesc: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    marginBottom: 8,
+  },
+  goalStats: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 10,
+  },
+  progressBarSmall: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.borderLight,
+    overflow: 'hidden' as const,
+  },
+  progressFillSmall: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  goalStatsText: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    fontWeight: '500' as const,
   },
   modalOverlay: {
     flex: 1,
@@ -351,6 +433,14 @@ const styles = StyleSheet.create({
     alignItems: 'center' as const,
     marginBottom: 20,
   },
+  modalHeaderRight: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 16,
+  },
+  deleteBtn: {
+    padding: 4,
+  },
   modalTitle: {
     fontSize: 20,
     fontWeight: '700' as const,
@@ -367,7 +457,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.cardAlt,
   },
   modalTextArea: {
-    minHeight: 80,
+    minHeight: 60,
     textAlignVertical: 'top' as const,
   },
   modalLabel: {
@@ -375,62 +465,67 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: Colors.textSecondary,
     marginBottom: 10,
+    marginTop: 4,
   },
-  areaScroll: {
-    marginBottom: 20,
+  emojiScroll: {
+    marginBottom: 16,
   },
-  areaPill: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+  emojiPill: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: Colors.cardAlt,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
     marginRight: 8,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
-  areaPillActive: {
-    backgroundColor: Colors.primarySoft,
+  emojiPillActive: {
     borderColor: Colors.primary,
+    backgroundColor: Colors.primarySoft,
   },
-  areaPillEmoji: {
-    fontSize: 14,
+  emojiText: {
+    fontSize: 22,
   },
-  areaPillText: {
-    fontSize: 13,
-    fontWeight: '600' as const,
-    color: Colors.textSecondary,
-  },
-  areaPillTextActive: {
-    color: Colors.primary,
-  },
-  freqRow: {
+  colorRow: {
     flexDirection: 'row' as const,
-    gap: 10,
+    gap: 12,
     marginBottom: 20,
   },
-  freqBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 14,
+  colorDot: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 3,
+    borderColor: 'transparent',
+  },
+  colorDotActive: {
+    borderColor: Colors.text,
+  },
+  previewCard: {
+    flexDirection: 'row' as const,
     alignItems: 'center' as const,
+    gap: 12,
     backgroundColor: Colors.cardAlt,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 20,
   },
-  freqBtnActive: {
-    backgroundColor: Colors.primarySoft,
-    borderColor: Colors.primary,
+  previewIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
   },
-  freqBtnText: {
-    fontSize: 14,
+  previewEmoji: {
+    fontSize: 20,
+  },
+  previewTitle: {
+    fontSize: 15,
     fontWeight: '600' as const,
-    color: Colors.textSecondary,
-  },
-  freqBtnTextActive: {
-    color: Colors.primary,
+    color: Colors.text,
   },
   modalBtn: {
     backgroundColor: Colors.primary,

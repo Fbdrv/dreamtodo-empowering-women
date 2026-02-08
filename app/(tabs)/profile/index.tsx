@@ -6,22 +6,30 @@ import {
   ScrollView,
   Animated,
   TouchableOpacity,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Flame, Award, Calendar, TrendingUp, Star, LogOut } from 'lucide-react-native';
+import { Flame, Award, Calendar, TrendingUp, Star, LogOut, X } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 import Colors from '@/constants/colors';
 import { useApp } from '@/providers/AppProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import { FOCUS_AREAS } from '@/mocks/data';
 
 export default function ProfileScreen() {
-  const { profile, badges } = useApp();
+  const { profile, badges, newlyEarnedBadge, clearNewlyEarnedBadge } = useApp();
   const { user, logout } = useAuth();
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
   }, [fadeAnim]);
+
+  useEffect(() => {
+    if (newlyEarnedBadge) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  }, [newlyEarnedBadge]);
 
   const earnedBadges = badges.filter(b => b.isEarned);
   const lockedBadges = badges.filter(b => !b.isEarned);
@@ -170,6 +178,23 @@ export default function ProfileScreen() {
           </Animated.View>
         </ScrollView>
       </SafeAreaView>
+
+      <Modal visible={!!newlyEarnedBadge} transparent animationType="fade">
+        <View style={styles.badgeModalOverlay}>
+          <View style={styles.badgeModalContent}>
+            <TouchableOpacity style={styles.badgeModalClose} onPress={clearNewlyEarnedBadge}>
+              <X size={20} color={Colors.textMuted} />
+            </TouchableOpacity>
+            <Text style={styles.badgeModalEmoji}>{newlyEarnedBadge?.emoji}</Text>
+            <Text style={styles.badgeModalTitle}>Badge Earned!</Text>
+            <Text style={styles.badgeModalName}>{newlyEarnedBadge?.title}</Text>
+            <Text style={styles.badgeModalDesc}>{newlyEarnedBadge?.description}</Text>
+            <TouchableOpacity style={styles.badgeModalBtn} onPress={clearNewlyEarnedBadge}>
+              <Text style={styles.badgeModalBtnText}>Awesome!</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -460,5 +485,61 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600' as const,
     color: Colors.error,
+  },
+  badgeModalOverlay: {
+    flex: 1,
+    backgroundColor: Colors.overlay,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    padding: 40,
+  },
+  badgeModalContent: {
+    backgroundColor: Colors.white,
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center' as const,
+    width: '100%',
+    maxWidth: 320,
+  },
+  badgeModalClose: {
+    position: 'absolute' as const,
+    top: 16,
+    right: 16,
+  },
+  badgeModalEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  badgeModalTitle: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.primary,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  badgeModalName: {
+    fontSize: 24,
+    fontWeight: '800' as const,
+    color: Colors.text,
+    marginBottom: 8,
+    textAlign: 'center' as const,
+  },
+  badgeModalDesc: {
+    fontSize: 15,
+    color: Colors.textSecondary,
+    textAlign: 'center' as const,
+    marginBottom: 24,
+  },
+  badgeModalBtn: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 24,
+  },
+  badgeModalBtnText: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: Colors.white,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,16 +9,23 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Heart, Users } from 'lucide-react-native';
 import Colors from '@/constants/colors';
-import { useApp } from '@/providers/AppProvider';
+import { COMMUNITY_WINS } from '@/mocks/data';
 import WinCard from '@/components/WinCard';
+import { CommunityWin } from '@/types';
 
 export default function CommunityScreen() {
-  const { communityWins, cheerWin } = useApp();
+  const [communityWins, setCommunityWins] = useState<CommunityWin[]>(COMMUNITY_WINS);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
   }, [fadeAnim]);
+
+  const cheerWin = (winId: string) => {
+    setCommunityWins(prev => 
+      prev.map(w => w.id === winId ? { ...w, cheers: w.cheers + 1, hasCheered: true } : w)
+    );
+  };
 
   const totalCheers = communityWins.reduce((sum, w) => sum + w.cheers, 0);
 

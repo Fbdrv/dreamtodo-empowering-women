@@ -5,29 +5,26 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthProvider';
 import {
   Challenge,
-  CommunityWin,
   DailyProgress,
   Dream,
   FocusArea,
+  Goal,
   Habit,
   UserProfile,
-  Badge,
+  EarnedBadge,
+  BadgeDefinition,
 } from '@/types';
-import {
-  BADGES,
-  COMMUNITY_WINS,
-  DAILY_CHALLENGES,
-} from '@/mocks/data';
+import { BADGE_DEFINITIONS } from '@/mocks/data';
 
 const STORAGE_KEY_PREFIX = 'dreaming_to_doing_app_';
 
 interface AppState {
   profile: UserProfile;
+  goals: Goal[];
   dreams: Dream[];
   habits: Habit[];
   challenges: Challenge[];
-  communityWins: CommunityWin[];
-  badges: Badge[];
+  earnedBadges: EarnedBadge[];
   dailyProgress: DailyProgress;
 }
 
@@ -46,11 +43,11 @@ const defaultProfile: UserProfile = {
 
 const getDefaultState = (): AppState => ({
   profile: defaultProfile,
+  goals: [],
   dreams: [],
   habits: [],
-  challenges: DAILY_CHALLENGES,
-  communityWins: COMMUNITY_WINS,
-  badges: BADGES,
+  challenges: [],
+  earnedBadges: [],
   dailyProgress: {
     date: new Date().toISOString().split('T')[0],
     habitsCompleted: 0,
@@ -64,6 +61,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [state, setState] = useState<AppState>(getDefaultState());
+  const [newlyEarnedBadge, setNewlyEarnedBadge] = useState<BadgeDefinition | null>(null);
 
   const storageKey = user ? `${STORAGE_KEY_PREFIX}${user.id}` : null;
 
@@ -76,7 +74,12 @@ export const [AppProvider, useApp] = createContextHook(() => {
         if (stored) {
           const parsed = JSON.parse(stored) as Partial<AppState>;
           console.log('[app] Loaded local state for user:', user?.id);
-          return { ...getDefaultState(), ...parsed };
+          const defaultState = getDefaultState();
+          return {
+            ...defaultState,
+            ...parsed,
+            profile: { ...defaultState.profile, ...parsed.profile },
+          };
         }
       } catch (e) {
         console.log('[app] Failed to load local state:', e);
@@ -97,9 +100,11 @@ export const [AppProvider, useApp] = createContextHook(() => {
       if (!storageKey) return newState;
       await AsyncStorage.setItem(storageKey, JSON.stringify({
         profile: newState.profile,
+        goals: newState.goals,
         dreams: newState.dreams,
         habits: newState.habits,
-        badges: newState.badges,
+        challenges: newState.challenges,
+        earnedBadges: newState.earnedBadges,
         dailyProgress: newState.dailyProgress,
       }));
       console.log('[app] Saved state locally for user:', user?.id);
@@ -107,7 +112,6 @@ export const [AppProvider, useApp] = createContextHook(() => {
     },
   });
 
-  // Reset state when user changes
   useEffect(() => {
     if (!user) {
       setState(getDefaultState());
@@ -117,10 +121,53 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
   const { mutate: saveLocal } = saveMutation;
 
-  const persist = useCallback((newState: AppState) => {
-    setState(newState);
-    saveLocal(newState);
-  }, [saveLocal]);
+  const checkAndAwardBadges = useCallback((currentState: AppState): EarnedBadge[] => {
+    const newBadges: EarnedBadge[] = [...currentState.earnedBadges];
+    const earnedIds = new Set(newBadges.map(b => b.badgeId));
+    
+    for (const badge of BADGE_DEFINITIONS) {
+      if (earnedIds.has(badge.id)) continue;
+      
+      let earned = false;
+      const { condition } = badge;
+      
+      switch (condition.type) {
+        case 'first_challenge':
+          earned = currentState.profile.challengesCompleted >= 1;
+          break;
+        case 'challenges_completed':
+          earned = currentState.profile.challengesCompleted >= condition.count;
+          break;
+        case 'streak':
+          earned = currentState.profile.currentStreak >= condition.days || 
+                   currentState.profile.bestStreak >= condition.days;
+          break;
+        case 'goals_created':
+          earned = currentState.goals.length >= condition.count;
+          break;
+        case 'habits_completed':
+          earned = currentState.profile.habitsCompleted >= condition.count;
+          break;
+      }
+      
+      if (earned) {
+        newBadges.push({ badgeId: badge.id, earnedAt: new Date().toISOString() });
+        setNewlyEarnedBadge(badge);
+      }
+    }
+    
+    return newBadges;
+  }, []);
+
+  const persist = useCallback((newState: AppState, skipBadgeCheck = false) => {
+    let finalState = newState;
+    if (!skipBadgeCheck) {
+      const updatedBadges = checkAndAwardBadges(newState);
+      finalState = { ...newState, earnedBadges: updatedBadges };
+    }
+    setState(finalState);
+    saveLocal(finalState);
+  }, [saveLocal, checkAndAwardBadges]);
 
   const completeOnboarding = useCallback((name: string, focusAreas: FocusArea[], dreamGoals: string[]) => {
     const updated = {
@@ -136,13 +183,114 @@ export const [AppProvider, useApp] = createContextHook(() => {
     persist(updated);
   }, [state, persist]);
 
+  const addGoal = useCallback((title: string, description: string, color: string, emoji: string) => {
+    if (state.goals.length >= 4) {
+      console.log('[app] Maximum 4 goals allowed');
+      return;
+    }
+    const newGoal: Goal = {
+      id: `g${Date.now()}`,
+      title,
+      description: description || undefined,
+      color,
+      emoji,
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    const updated = {
+      ...state,
+      goals: [...state.goals, newGoal],
+    };
+    persist(updated);
+  }, [state, persist]);
+
+  const updateGoal = useCallback((goalId: string, title: string, description: string, color: string, emoji: string) => {
+    const updated = {
+      ...state,
+      goals: state.goals.map(g => 
+        g.id === goalId ? { ...g, title, description: description || undefined, color, emoji } : g
+      ),
+    };
+    persist(updated, true);
+  }, [state, persist]);
+
+  const deleteGoal = useCallback((goalId: string) => {
+    const updated = {
+      ...state,
+      goals: state.goals.filter(g => g.id !== goalId),
+      challenges: state.challenges.filter(c => c.goalId !== goalId),
+    };
+    persist(updated, true);
+  }, [state, persist]);
+
+  const addChallenge = useCallback((title: string, description: string, goalId: string, duration: string) => {
+    const newChallenge: Challenge = {
+      id: `c${Date.now()}`,
+      title,
+      description,
+      goalId,
+      duration,
+      isCompleted: false,
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    const updated = {
+      ...state,
+      challenges: [...state.challenges, newChallenge],
+    };
+    persist(updated, true);
+  }, [state, persist]);
+
+  const updateChallenge = useCallback((challengeId: string, title: string, description: string, goalId: string, duration: string) => {
+    const updated = {
+      ...state,
+      challenges: state.challenges.map(c =>
+        c.id === challengeId ? { ...c, title, description, goalId, duration } : c
+      ),
+    };
+    persist(updated, true);
+  }, [state, persist]);
+
+  const deleteChallenge = useCallback((challengeId: string) => {
+    const updated = {
+      ...state,
+      challenges: state.challenges.filter(c => c.id !== challengeId),
+    };
+    persist(updated, true);
+  }, [state, persist]);
+
+  const completeChallenge = useCallback((challengeId: string) => {
+    const updated = {
+      ...state,
+      challenges: state.challenges.map(c =>
+        c.id === challengeId ? { ...c, isCompleted: true, completedAt: new Date().toISOString() } : c
+      ),
+      dailyProgress: {
+        ...state.dailyProgress,
+        challengeCompleted: true,
+        points: state.dailyProgress.points + 25,
+      },
+      profile: {
+        ...state.profile,
+        challengesCompleted: state.profile.challengesCompleted + 1,
+        totalPoints: state.profile.totalPoints + 25,
+      },
+    };
+    persist(updated);
+  }, [state, persist]);
+
   const toggleHabitComplete = useCallback((habitId: string) => {
     const today = new Date().toISOString().split('T')[0];
+    const habit = state.habits.find(h => h.id === habitId);
+    if (!habit) return;
+    
+    const isCompleted = habit.completedDates.includes(today);
+    const newHabitsCompleted = isCompleted 
+      ? state.profile.habitsCompleted 
+      : state.profile.habitsCompleted + 1;
+    
     const updated = {
       ...state,
       habits: state.habits.map(h => {
         if (h.id !== habitId) return h;
-        const isCompleted = h.completedDates.includes(today);
         const newDates = isCompleted
           ? h.completedDates.filter(d => d !== today)
           : [...h.completedDates, today];
@@ -162,42 +310,12 @@ export const [AppProvider, useApp] = createContextHook(() => {
       },
       profile: {
         ...state.profile,
-        habitsCompleted: state.profile.habitsCompleted + 1,
-        totalPoints: state.profile.totalPoints + 10,
+        habitsCompleted: newHabitsCompleted,
+        totalPoints: isCompleted ? state.profile.totalPoints : state.profile.totalPoints + 10,
       },
     };
     persist(updated);
   }, [state, persist]);
-
-  const completeChallenge = useCallback((challengeId: string) => {
-    const updated = {
-      ...state,
-      challenges: state.challenges.map(c =>
-        c.id === challengeId ? { ...c, isCompleted: true } : c
-      ),
-      dailyProgress: {
-        ...state.dailyProgress,
-        challengeCompleted: true,
-        points: state.dailyProgress.points + 25,
-      },
-      profile: {
-        ...state.profile,
-        challengesCompleted: state.profile.challengesCompleted + 1,
-        totalPoints: state.profile.totalPoints + 25,
-      },
-    };
-    persist(updated);
-  }, [state, persist]);
-
-  const cheerWin = useCallback((winId: string) => {
-    const updated = {
-      ...state,
-      communityWins: state.communityWins.map(w =>
-        w.id === winId ? { ...w, cheers: w.cheers + 1, hasCheered: true } : w
-      ),
-    };
-    setState(updated);
-  }, [state]);
 
   const addDream = useCallback((title: string, description: string, focusArea: FocusArea) => {
     const newDream: Dream = {
@@ -213,7 +331,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
       ...state,
       dreams: [...state.dreams, newDream],
     };
-    persist(updated);
+    persist(updated, true);
   }, [state, persist]);
 
   const addHabit = useCallback((title: string, frequency: 'daily' | 'weekly', dreamId?: string) => {
@@ -232,23 +350,57 @@ export const [AppProvider, useApp] = createContextHook(() => {
       ...state,
       habits: [...state.habits, newHabit],
     };
-    persist(updated);
+    persist(updated, true);
   }, [state, persist]);
+
+  const clearNewlyEarnedBadge = useCallback(() => {
+    setNewlyEarnedBadge(null);
+  }, []);
 
   const todayCompletedHabits = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
     return state.habits.filter(h => h.completedDates.includes(today)).length;
   }, [state.habits]);
 
+  const badges = useMemo(() => {
+    return BADGE_DEFINITIONS.map(def => {
+      const earned = state.earnedBadges.find(e => e.badgeId === def.id);
+      return {
+        ...def,
+        isEarned: !!earned,
+        earnedAt: earned?.earnedAt,
+      };
+    });
+  }, [state.earnedBadges]);
+
+  const getChallengesByGoal = useCallback((goalId: string) => {
+    return state.challenges.filter(c => c.goalId === goalId);
+  }, [state.challenges]);
+
   return {
-    ...state,
+    profile: state.profile,
+    goals: state.goals,
+    dreams: state.dreams,
+    habits: state.habits,
+    challenges: state.challenges,
+    earnedBadges: state.earnedBadges,
+    dailyProgress: state.dailyProgress,
+    badges,
     isLoading: stateQuery.isLoading,
+    newlyEarnedBadge,
+    clearNewlyEarnedBadge,
     completeOnboarding,
-    toggleHabitComplete,
+    addGoal,
+    updateGoal,
+    deleteGoal,
+    addChallenge,
+    updateChallenge,
+    deleteChallenge,
     completeChallenge,
-    cheerWin,
+    toggleHabitComplete,
     addDream,
     addHabit,
     todayCompletedHabits,
+    getChallengesByGoal,
   };
 });

@@ -4,7 +4,6 @@ import { Check, Clock, Sparkles, ArrowRight } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import Colors from '@/constants/colors';
 import { Challenge } from '@/types';
-import { FOCUS_AREAS } from '@/mocks/data';
 
 interface ChallengeCardProps {
   challenge: Challenge;
@@ -15,7 +14,6 @@ interface ChallengeCardProps {
 export default function ChallengeCard({ challenge, onComplete, variant = 'full' }: ChallengeCardProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const checkAnim = useRef(new Animated.Value(0)).current;
-  const focusArea = FOCUS_AREAS.find(f => f.id === challenge.focusArea);
 
   const handleComplete = () => {
     if (challenge.isCompleted) return;
@@ -37,7 +35,6 @@ export default function ChallengeCard({ challenge, onComplete, variant = 'full' 
         activeOpacity={0.7}
       >
         <View style={styles.compactLeft}>
-          <Text style={styles.compactEmoji}>{focusArea?.emoji}</Text>
           <View style={styles.compactContent}>
             <Text style={[styles.compactTitle, challenge.isCompleted && styles.completedText]} numberOfLines={1}>
               {challenge.title}
@@ -70,7 +67,7 @@ export default function ChallengeCard({ challenge, onComplete, variant = 'full' 
         <View style={styles.header}>
           <View style={styles.badge}>
             <Sparkles size={14} color={Colors.accent} />
-            <Text style={styles.badgeText}>Today's Challenge</Text>
+            <Text style={styles.badgeText}>Today&apos;s Challenge</Text>
           </View>
           <View style={styles.durationBadge}>
             <Clock size={12} color={Colors.textSecondary} />
@@ -82,7 +79,7 @@ export default function ChallengeCard({ challenge, onComplete, variant = 'full' 
         {challenge.isCompleted ? (
           <View style={styles.completedBanner}>
             <Check size={16} color={Colors.success} />
-            <Text style={styles.completedBannerText}>Completed! {challenge.affirmation}</Text>
+            <Text style={styles.completedBannerText}>Completed! Great job!</Text>
           </View>
         ) : (
           <View style={styles.actionRow}>

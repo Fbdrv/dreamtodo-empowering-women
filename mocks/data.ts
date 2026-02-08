@@ -1,4 +1,4 @@
-import { Badge, Challenge, CommunityWin, Dream, FocusAreaItem, Habit } from '@/types';
+import { BadgeDefinition, CommunityWin, FocusAreaItem } from '@/types';
 
 export const FOCUS_AREAS: FocusAreaItem[] = [
   {
@@ -41,125 +41,27 @@ export const DREAM_SUGGESTIONS: Record<string, string[]> = {
   lifestyle: ['Morning routine I love', 'Read 24 books this year', 'Run a half marathon'],
 };
 
-export const SAMPLE_DREAMS: Dream[] = [
-  {
-    id: 'd1',
-    title: 'Solo trip to Bali',
-    description: 'Plan and take my first solo international trip',
-    focusArea: 'travel',
-    createdAt: '2026-01-15',
-    habits: [],
-    progress: 0.35,
-  },
-  {
-    id: 'd2',
-    title: 'Save $10K emergency fund',
-    description: 'Build financial security one step at a time',
-    focusArea: 'money',
-    createdAt: '2026-01-20',
-    habits: [],
-    progress: 0.6,
-  },
+export const BADGE_DEFINITIONS: BadgeDefinition[] = [
+  { id: 'b1', title: 'First Brave Step', description: 'Completed your first challenge', emoji: '🌱', condition: { type: 'first_challenge' } },
+  { id: 'b2', title: 'Momentum Builder', description: '7-day streak', emoji: '🔥', condition: { type: 'streak', days: 7 } },
+  { id: 'b3', title: 'Goal Setter', description: 'Created 3 goals', emoji: '🎯', condition: { type: 'goals_created', count: 3 } },
+  { id: 'b4', title: 'Consistency Queen', description: '30-day streak', emoji: '👑', condition: { type: 'streak', days: 30 } },
+  { id: 'b5', title: 'Challenge Champion', description: 'Completed 10 challenges', emoji: '🏆', condition: { type: 'challenges_completed', count: 10 } },
+  { id: 'b6', title: 'Habit Hero', description: 'Completed 50 habits', emoji: '💎', condition: { type: 'habits_completed', count: 50 } },
+  { id: 'b7', title: 'Rising Star', description: 'Completed 5 challenges', emoji: '⭐', condition: { type: 'challenges_completed', count: 5 } },
+  { id: 'b8', title: 'Unstoppable', description: 'Completed 100 habits', emoji: '⚡', condition: { type: 'habits_completed', count: 100 } },
 ];
 
-export const SAMPLE_HABITS: Habit[] = [
-  {
-    id: 'h1',
-    title: 'Save $50 this week',
-    dreamId: 'd2',
-    frequency: 'weekly',
-    streak: 4,
-    bestStreak: 6,
-    completedDates: ['2026-02-01', '2026-02-02', '2026-02-03', '2026-02-04'],
-    createdAt: '2026-01-20',
-    isActive: true,
-  },
-  {
-    id: 'h2',
-    title: 'Research one destination',
-    dreamId: 'd1',
-    frequency: 'daily',
-    streak: 7,
-    bestStreak: 7,
-    completedDates: ['2026-02-01', '2026-02-02', '2026-02-03', '2026-02-04', '2026-02-05', '2026-02-06', '2026-02-07'],
-    createdAt: '2026-01-15',
-    isActive: true,
-  },
-  {
-    id: 'h3',
-    title: 'Journal for 5 minutes',
-    frequency: 'daily',
-    streak: 3,
-    bestStreak: 12,
-    completedDates: ['2026-02-05', '2026-02-06', '2026-02-07'],
-    createdAt: '2026-01-10',
-    isActive: true,
-  },
-  {
-    id: 'h4',
-    title: 'One confidence affirmation',
-    frequency: 'daily',
-    streak: 10,
-    bestStreak: 10,
-    completedDates: [],
-    createdAt: '2026-01-28',
-    isActive: true,
-  },
+export const GOAL_COLORS = [
+  '#C67C4E',
+  '#8B9E7E', 
+  '#E8B86D',
+  '#9B7DB8',
+  '#6B9BD1',
+  '#D4726A',
 ];
 
-export const DAILY_CHALLENGES: Challenge[] = [
-  {
-    id: 'c1',
-    title: 'Write down 3 things you\'re proud of',
-    description: 'Take a moment to acknowledge your wins — big or small. Write them down and sit with that feeling.',
-    duration: '5 min',
-    focusArea: 'confidence',
-    type: 'main',
-    isCompleted: false,
-    affirmation: 'You showed up for yourself today. That matters.',
-  },
-  {
-    id: 'c2',
-    title: 'Transfer $5 to savings',
-    description: 'Even the smallest amount builds momentum. Move $5 to your savings right now.',
-    duration: '2 min',
-    focusArea: 'money',
-    type: 'bonus',
-    isCompleted: false,
-    affirmation: 'Every dollar you save is a vote for your future freedom.',
-  },
-  {
-    id: 'c3',
-    title: 'Text someone who inspires you',
-    description: 'Reach out to someone you admire. Tell them why. Connection fuels courage.',
-    duration: '5 min',
-    focusArea: 'confidence',
-    type: 'bonus',
-    isCompleted: false,
-    affirmation: 'Reaching out takes courage. You just did something brave.',
-  },
-  {
-    id: 'c4',
-    title: 'Research one dream destination',
-    description: 'Spend 10 minutes exploring a place you\'ve always wanted to visit. Save one image that excites you.',
-    duration: '10 min',
-    focusArea: 'travel',
-    type: 'bonus',
-    isCompleted: false,
-    affirmation: 'Your dream trip is getting closer, one step at a time.',
-  },
-];
-
-export const BADGES: Badge[] = [
-  { id: 'b1', title: 'First Brave Step', description: 'Completed your first challenge', emoji: '🌱', isEarned: true, earnedAt: '2026-01-15' },
-  { id: 'b2', title: 'Momentum Builder', description: '7-day streak', emoji: '🔥', isEarned: true, earnedAt: '2026-01-22' },
-  { id: 'b3', title: 'Dreamweaver', description: 'Created 3 dream goals', emoji: '🌙', isEarned: false },
-  { id: 'b4', title: 'Consistency Queen', description: '30-day streak', emoji: '👑', isEarned: false },
-  { id: 'b5', title: 'Brave Explorer', description: 'Completed a travel challenge', emoji: '🗺️', isEarned: true, earnedAt: '2026-02-01' },
-  { id: 'b6', title: 'Money Moves', description: 'Saved consistently for 4 weeks', emoji: '💎', isEarned: false },
-  { id: 'b7', title: 'Self-Trust', description: 'Completed 10 confidence challenges', emoji: '🦋', isEarned: false },
-  { id: 'b8', title: 'Unstoppable', description: '100 habits completed', emoji: '⚡', isEarned: false },
-];
+export const GOAL_EMOJIS = ['🎯', '💪', '🌟', '🚀', '💡', '🔥', '✨', '🌱', '💎', '🏆'];
 
 export const COMMUNITY_WINS: CommunityWin[] = [
   { id: 'w1', message: 'Just booked my first solo trip! 3 months of small steps led here.', focusArea: 'travel', cheers: 47, timeAgo: '2h ago' },

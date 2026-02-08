@@ -50,7 +50,7 @@ export default function HomeScreen() {
     return AFFIRMATIONS[dayIndex];
   }, []);
 
-  const mainChallenge = challenges.find(c => c.type === 'main');
+  const pendingChallenge = challenges.find(c => !c.isCompleted);
   const habitProgress = habits.length > 0 ? todayCompletedHabits / habits.length : 0;
   const displayName = profile.name || 'Friend';
 
@@ -109,9 +109,12 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            {mainChallenge && (
+            {pendingChallenge && (
               <View style={styles.section}>
-                <ChallengeCard challenge={mainChallenge} onComplete={completeChallenge} />
+                <Text style={styles.sectionTitle}>Next Challenge</Text>
+                <View style={styles.challengeCardWrapper}>
+                  <ChallengeCard challenge={pendingChallenge} onComplete={completeChallenge} />
+                </View>
               </View>
             )}
 
@@ -280,6 +283,9 @@ const styles = StyleSheet.create({
   },
   habitsList: {
     gap: 10,
+    marginTop: 12,
+  },
+  challengeCardWrapper: {
     marginTop: 12,
   },
 });
