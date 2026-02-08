@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import createContextHook from '@nkzw/create-context-hook';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useAuth } from './AuthProvider';
 import {
   Challenge,
   CommunityWin,
@@ -16,11 +17,9 @@ import {
   BADGES,
   COMMUNITY_WINS,
   DAILY_CHALLENGES,
-  SAMPLE_DREAMS,
-  SAMPLE_HABITS,
 } from '@/mocks/data';
 
-const STORAGE_KEY = 'dreaming_to_doing_app';
+const STORAGE_KEY_PREFIX = 'dreaming_to_doing_app_';
 
 interface AppState {
   profile: UserProfile;
@@ -45,40 +44,46 @@ const defaultProfile: UserProfile = {
   hasCompletedOnboarding: false,
 };
 
-const defaultState: AppState = {
+const getDefaultState = (): AppState => ({
   profile: defaultProfile,
-  dreams: SAMPLE_DREAMS,
-  habits: SAMPLE_HABITS,
+  dreams: [],
+  habits: [],
   challenges: DAILY_CHALLENGES,
   communityWins: COMMUNITY_WINS,
   badges: BADGES,
   dailyProgress: {
     date: new Date().toISOString().split('T')[0],
-    habitsCompleted: 2,
-    habitsTotal: 4,
+    habitsCompleted: 0,
+    habitsTotal: 0,
     challengeCompleted: false,
-    points: 30,
+    points: 0,
   },
-};
+});
 
 export const [AppProvider, useApp] = createContextHook(() => {
-  const [state, setState] = useState<AppState>(defaultState);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [state, setState] = useState<AppState>(getDefaultState());
+
+  const storageKey = user ? `${STORAGE_KEY_PREFIX}${user.id}` : null;
 
   const stateQuery = useQuery({
-    queryKey: ['appState'],
+    queryKey: ['appState', storageKey],
     queryFn: async () => {
+      if (!storageKey) return getDefaultState();
       try {
-        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        const stored = await AsyncStorage.getItem(storageKey);
         if (stored) {
           const parsed = JSON.parse(stored) as Partial<AppState>;
-          console.log('[app] Loaded local state');
-          return { ...defaultState, ...parsed };
+          console.log('[app] Loaded local state for user:', user?.id);
+          return { ...getDefaultState(), ...parsed };
         }
       } catch (e) {
         console.log('[app] Failed to load local state:', e);
       }
-      return defaultState;
+      return getDefaultState();
     },
+    enabled: !!user,
   });
 
   useEffect(() => {
@@ -89,17 +94,26 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
   const saveMutation = useMutation({
     mutationFn: async (newState: AppState) => {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({
+      if (!storageKey) return newState;
+      await AsyncStorage.setItem(storageKey, JSON.stringify({
         profile: newState.profile,
         dreams: newState.dreams,
         habits: newState.habits,
         badges: newState.badges,
         dailyProgress: newState.dailyProgress,
       }));
-      console.log('[app] Saved state locally');
+      console.log('[app] Saved state locally for user:', user?.id);
       return newState;
     },
   });
+
+  // Reset state when user changes
+  useEffect(() => {
+    if (!user) {
+      setState(getDefaultState());
+      queryClient.removeQueries({ queryKey: ['appState'] });
+    }
+  }, [user, queryClient]);
 
   const { mutate: saveLocal } = saveMutation;
 
