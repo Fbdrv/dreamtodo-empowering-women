@@ -135,7 +135,7 @@ export default function OnboardingScreen() {
           <View style={styles.stepContent}>
             <Text style={styles.stepTitle}>What lights you up?</Text>
             <Text style={styles.stepSubtitle}>Pick the areas you want to focus on.</Text>
-            <View style={styles.areaGrid}>
+            <ScrollView style={styles.areaScroll} contentContainerStyle={styles.areaGrid} showsVerticalScrollIndicator={false}>
               {FOCUS_AREAS.map(area => {
                 const isSelected = selectedAreas.includes(area.id);
                 return (
@@ -152,7 +152,7 @@ export default function OnboardingScreen() {
                   </TouchableOpacity>
                 );
               })}
-            </View>
+            </ScrollView>
           </View>
         );
       case 3:
@@ -367,8 +367,12 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 4,
   },
+  areaScroll: {
+    flex: 1,
+  },
   areaGrid: {
     gap: 12,
+    paddingBottom: 20,
   },
   areaCard: {
     backgroundColor: Colors.white,
