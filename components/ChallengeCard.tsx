@@ -75,7 +75,7 @@ export default function ChallengeCard({ challenge, onComplete, variant = 'full' 
           </View>
         </View>
         <Text style={[styles.title, challenge.isCompleted && styles.completedText]}>{challenge.title}</Text>
-        <Text style={styles.description}>{challenge.description}</Text>
+        {challenge.description ? <Text style={styles.description}>{challenge.description}</Text> : null}
         {challenge.isCompleted ? (
           <View style={styles.completedBanner}>
             <Check size={16} color={Colors.success} />

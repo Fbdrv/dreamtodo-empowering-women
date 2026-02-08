@@ -177,9 +177,9 @@ export default function ChallengesScreen() {
                               </TouchableOpacity>
                             </View>
                             <Text style={styles.challengeTitle}>{challenge.title}</Text>
-                            {challenge.description && (
+                            {challenge.description ? (
                               <Text style={styles.challengeDesc}>{challenge.description}</Text>
-                            )}
+                            ) : null}
                             <View style={styles.challengeFooter}>
                               <View style={styles.durationBadge}>
                                 <Clock size={12} color={Colors.textMuted} />
