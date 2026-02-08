@@ -35,8 +35,13 @@ export default function CommunityScreen() {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <Animated.View style={{ opacity: fadeAnim }}>
             <View style={styles.header}>
-              <Text style={styles.title}>Community</Text>
-              <Text style={styles.subtitle}>Celebrate wins together 💛</Text>
+              <View style={styles.titleRow}>
+                <Text style={styles.title}>Community</Text>
+                <View style={styles.comingSoonPill}>
+                  <Text style={styles.comingSoonText}>Coming soon</Text>
+                </View>
+              </View>
+              <Text style={styles.subtitle}>Preview — full Community features ship after MVP</Text>
             </View>
 
             <View style={styles.statsRow}>
@@ -98,10 +103,27 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 4,
   },
+  titleRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 10,
+  },
   title: {
     fontSize: 28,
     fontWeight: '800' as const,
     color: Colors.text,
+  },
+  comingSoonPill: {
+    backgroundColor: Colors.accentLight,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  comingSoonText: {
+    fontSize: 11,
+    fontWeight: '700' as const,
+    color: Colors.primary,
+    letterSpacing: 0.3,
   },
   subtitle: {
     fontSize: 14,
