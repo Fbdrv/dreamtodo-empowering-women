@@ -1,0 +1,33 @@
+import { initTRPC, TRPCError } from "@trpc/server";
+import { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
+import superjson from "superjson";
+import { getUserByToken } from "../db/store";
+
+export const createContext = async (opts: FetchCreateContextFnOptions) => {
+  const authHeader = opts.req.headers.get("authorization");
+  const token = authHeader?.replace("Bearer ", "") ?? null;
+
+  const user = token ? getUserByToken(token) : null;
+
+  return {
+    req: opts.req,
+    token,
+    user,
+  };
+};
+
+export type Context = Awaited<ReturnType<typeof createContext>>;
+
+const t = initTRPC.context<Context>().create({
+  transformer: superjson,
+});
+
+export const createTRPCRouter = t.router;
+export const publicProcedure = t.procedure;
+
+export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
+  if (!ctx.user) {
+    throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
+  }
+  return next({ ctx: { ...ctx, user: ctx.user } });
+});
