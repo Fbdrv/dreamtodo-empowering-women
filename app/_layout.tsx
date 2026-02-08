@@ -3,7 +3,6 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { trpc, trpcClient } from "@/lib/trpc";
 import { AuthProvider, useAuth } from "@/providers/AuthProvider";
 import { AppProvider } from "@/providers/AppProvider";
 import Colors from "@/constants/colors";
@@ -70,16 +69,14 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <trpc.Provider client={trpcClient} queryClient={queryClient}>
-      <QueryClientProvider client={queryClient}>
-        <GestureHandlerRootView>
-          <AuthProvider>
-            <AppProvider>
-              <RootLayoutNav />
-            </AppProvider>
-          </AuthProvider>
-        </GestureHandlerRootView>
-      </QueryClientProvider>
-    </trpc.Provider>
+    <QueryClientProvider client={queryClient}>
+      <GestureHandlerRootView>
+        <AuthProvider>
+          <AppProvider>
+            <RootLayoutNav />
+          </AppProvider>
+        </AuthProvider>
+      </GestureHandlerRootView>
+    </QueryClientProvider>
   );
 }

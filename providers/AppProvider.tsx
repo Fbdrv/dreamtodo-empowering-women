@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import createContextHook from '@nkzw/create-context-hook';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -19,8 +19,6 @@ import {
   SAMPLE_DREAMS,
   SAMPLE_HABITS,
 } from '@/mocks/data';
-import { trpc } from '@/lib/trpc';
-import { useAuth } from '@/providers/AuthProvider';
 
 const STORAGE_KEY = 'dreaming_to_doing_app';
 
@@ -65,8 +63,6 @@ const defaultState: AppState = {
 
 export const [AppProvider, useApp] = createContextHook(() => {
   const [state, setState] = useState<AppState>(defaultState);
-  const queryClient = useQueryClient();
-  const { isAuthenticated } = useAuth();
 
   const stateQuery = useQuery({
     queryKey: ['appState'],
@@ -75,40 +71,23 @@ export const [AppProvider, useApp] = createContextHook(() => {
         const stored = await AsyncStorage.getItem(STORAGE_KEY);
         if (stored) {
           const parsed = JSON.parse(stored) as Partial<AppState>;
+          console.log('[app] Loaded local state');
           return { ...defaultState, ...parsed };
         }
       } catch (e) {
-        console.log('Failed to load local state:', e);
+        console.log('[app] Failed to load local state:', e);
       }
       return defaultState;
     },
   });
 
-  const remoteDataQuery = trpc.userData.getData.useQuery(undefined, {
-    enabled: isAuthenticated,
-    retry: false,
-    staleTime: 30000,
-  });
-
   useEffect(() => {
-    if (remoteDataQuery.data?.data) {
-      const remoteData = remoteDataQuery.data.data as Partial<AppState>;
-      console.log('[app] Loaded remote data');
-      const merged = { ...defaultState, ...remoteData };
-      setState(merged);
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({
-        profile: merged.profile,
-        dreams: merged.dreams,
-        habits: merged.habits,
-        badges: merged.badges,
-        dailyProgress: merged.dailyProgress,
-      })).catch(() => {});
-    } else if (stateQuery.data) {
+    if (stateQuery.data) {
       setState(stateQuery.data);
     }
-  }, [remoteDataQuery.data, stateQuery.data]);
+  }, [stateQuery.data]);
 
-  const localSaveMutation = useMutation({
+  const saveMutation = useMutation({
     mutationFn: async (newState: AppState) => {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({
         profile: newState.profile,
@@ -117,36 +96,17 @@ export const [AppProvider, useApp] = createContextHook(() => {
         badges: newState.badges,
         dailyProgress: newState.dailyProgress,
       }));
+      console.log('[app] Saved state locally');
       return newState;
     },
   });
 
-  const remoteSaveMutation = trpc.userData.saveData.useMutation({
-    onSuccess: () => {
-      console.log('[app] Data synced to server');
-    },
-    onError: (err) => {
-      console.log('[app] Failed to sync to server:', err.message);
-    },
-  });
-
-  const { mutate: saveLocal } = localSaveMutation;
-  const { mutate: saveRemote } = remoteSaveMutation;
+  const { mutate: saveLocal } = saveMutation;
 
   const persist = useCallback((newState: AppState) => {
     setState(newState);
     saveLocal(newState);
-    if (isAuthenticated) {
-      const dataToSync = {
-        profile: newState.profile,
-        dreams: newState.dreams,
-        habits: newState.habits,
-        badges: newState.badges,
-        dailyProgress: newState.dailyProgress,
-      };
-      saveRemote({ data: dataToSync as Record<string, unknown> });
-    }
-  }, [saveLocal, saveRemote, isAuthenticated]);
+  }, [saveLocal]);
 
   const completeOnboarding = useCallback((name: string, focusAreas: FocusArea[], dreamGoals: string[]) => {
     const updated = {

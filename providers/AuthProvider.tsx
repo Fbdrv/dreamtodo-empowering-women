@@ -2,10 +2,8 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useCallback, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as SecureStore from 'expo-secure-store';
-import { trpc } from '@/lib/trpc';
-import { setTrpcAuthToken } from '@/lib/trpc';
 
-const TOKEN_KEY = 'auth_token';
+const USER_KEY = 'local_user';
 
 interface AuthUser {
   id: string;
@@ -13,21 +11,29 @@ interface AuthUser {
   username: string;
 }
 
+interface StoredAuth {
+  user: AuthUser;
+  password: string;
+}
+
 export const [AuthProvider, useAuth] = createContextHook(() => {
-  const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isReady, setIsReady] = useState<boolean>(false);
   const queryClient = useQueryClient();
 
-  const tokenQuery = useQuery({
-    queryKey: ['authToken'],
+  const userQuery = useQuery({
+    queryKey: ['localUser'],
     queryFn: async () => {
       try {
-        const stored = await SecureStore.getItemAsync(TOKEN_KEY);
-        console.log('[auth] Loaded stored token:', stored ? 'exists' : 'none');
-        return stored;
+        const stored = await SecureStore.getItemAsync(USER_KEY);
+        console.log('[auth] Loaded stored user:', stored ? 'exists' : 'none');
+        if (stored) {
+          const parsed = JSON.parse(stored) as StoredAuth;
+          return parsed.user;
+        }
+        return null;
       } catch (e) {
-        console.log('[auth] Failed to load token:', e);
+        console.log('[auth] Failed to load user:', e);
         return null;
       }
     },
@@ -35,101 +41,107 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   });
 
   useEffect(() => {
-    if (tokenQuery.data !== undefined) {
-      const storedToken = tokenQuery.data ?? null;
-      setToken(storedToken);
-      setTrpcAuthToken(storedToken);
-      if (!storedToken) {
-        setIsReady(true);
+    if (userQuery.data !== undefined) {
+      setUser(userQuery.data);
+      setIsReady(true);
+    } else if (!userQuery.isLoading) {
+      setIsReady(true);
+    }
+  }, [userQuery.data, userQuery.isLoading]);
+
+  const registerMutation = useMutation({
+    mutationFn: async ({ email, username, password }: { email: string; username: string; password: string }) => {
+      const existing = await SecureStore.getItemAsync(USER_KEY);
+      if (existing) {
+        const parsed = JSON.parse(existing) as StoredAuth;
+        if (parsed.user.email === email) {
+          throw new Error('An account with this email already exists');
+        }
       }
-    } else if (!tokenQuery.isLoading) {
-      setIsReady(true);
-    }
-  }, [tokenQuery.data, tokenQuery.isLoading]);
 
-  const meQuery = trpc.auth.me.useQuery(undefined, {
-    enabled: !!token,
-    retry: false,
-  });
+      const newUser: AuthUser = {
+        id: `user_${Date.now()}`,
+        email,
+        username,
+      };
 
-  useEffect(() => {
-    if (meQuery.data) {
-      setUser(meQuery.data);
-      setIsReady(true);
-      console.log('[auth] User verified:', meQuery.data.email);
-    } else if (meQuery.error && token) {
-      console.log('[auth] Token invalid, clearing');
-      setToken(null);
-      setUser(null);
-      setTrpcAuthToken(null);
-      SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => {});
-      setIsReady(true);
-    }
-  }, [meQuery.data, meQuery.error, token]);
-
-  const registerMutation = trpc.auth.register.useMutation({
-    onSuccess: async (data) => {
-      console.log('[auth] Register success:', data.user.email);
-      setToken(data.token);
-      setUser(data.user);
-      setTrpcAuthToken(data.token);
-      await SecureStore.setItemAsync(TOKEN_KEY, data.token);
-      queryClient.invalidateQueries({ queryKey: ['authToken'] });
+      const authData: StoredAuth = { user: newUser, password };
+      await SecureStore.setItemAsync(USER_KEY, JSON.stringify(authData));
+      console.log('[auth] Register success:', newUser.email);
+      return newUser;
+    },
+    onSuccess: (newUser) => {
+      setUser(newUser);
+      queryClient.invalidateQueries({ queryKey: ['localUser'] });
     },
     onError: (error) => {
       console.log('[auth] Register error:', error.message);
     },
   });
 
-  const loginMutation = trpc.auth.login.useMutation({
-    onSuccess: async (data) => {
-      console.log('[auth] Login success:', data.user.email);
-      setToken(data.token);
-      setUser(data.user);
-      setTrpcAuthToken(data.token);
-      await SecureStore.setItemAsync(TOKEN_KEY, data.token);
-      queryClient.invalidateQueries({ queryKey: ['authToken'] });
+  const loginMutation = useMutation({
+    mutationFn: async ({ email, password }: { email: string; password: string }) => {
+      const stored = await SecureStore.getItemAsync(USER_KEY);
+      if (!stored) {
+        throw new Error('No account found. Please create an account first.');
+      }
+
+      const parsed = JSON.parse(stored) as StoredAuth;
+      if (parsed.user.email !== email) {
+        throw new Error('No account found with this email');
+      }
+      if (parsed.password !== password) {
+        throw new Error('Incorrect password');
+      }
+
+      console.log('[auth] Login success:', parsed.user.email);
+      return parsed.user;
+    },
+    onSuccess: (loggedInUser) => {
+      setUser(loggedInUser);
+      queryClient.invalidateQueries({ queryKey: ['localUser'] });
     },
     onError: (error) => {
       console.log('[auth] Login error:', error.message);
     },
   });
 
-  const logoutMutation = trpc.auth.logout.useMutation({
-    onSuccess: async () => {
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      await SecureStore.deleteItemAsync(USER_KEY);
       console.log('[auth] Logout success');
     },
-    onSettled: async () => {
-      setToken(null);
+    onSettled: () => {
       setUser(null);
-      setTrpcAuthToken(null);
-      await SecureStore.deleteItemAsync(TOKEN_KEY);
       queryClient.clear();
     },
   });
 
+  const { mutateAsync: registerAsync } = registerMutation;
+  const { mutateAsync: loginAsync } = loginMutation;
+  const { mutate: logoutMutate } = logoutMutation;
+
   const register = useCallback(
     (email: string, username: string, password: string) => {
-      return registerMutation.mutateAsync({ email, username, password });
+      return registerAsync({ email, username, password });
     },
-    [registerMutation]
+    [registerAsync]
   );
 
   const login = useCallback(
     (email: string, password: string) => {
-      return loginMutation.mutateAsync({ email, password });
+      return loginAsync({ email, password });
     },
-    [loginMutation]
+    [loginAsync]
   );
 
   const logout = useCallback(() => {
-    logoutMutation.mutate();
-  }, [logoutMutation]);
+    logoutMutate();
+  }, [logoutMutate]);
 
   return {
     user,
-    token,
-    isAuthenticated: !!user && !!token,
+    isAuthenticated: !!user,
     isReady,
     isLoggingIn: loginMutation.isPending,
     isRegistering: registerMutation.isPending,
