@@ -292,35 +292,37 @@ export const [AppProvider, useApp] = createContextHook(() => {
     if (!habit) return;
     
     const isCompleted = habit.completedDates.includes(today);
-    const newHabitsCompleted = isCompleted 
-      ? state.profile.habitsCompleted 
-      : state.profile.habitsCompleted + 1;
     
+    const newHabits = state.habits.map(h => {
+      if (h.id !== habitId) return h;
+      const newDates = isCompleted
+        ? h.completedDates.filter(d => d !== today)
+        : [...h.completedDates, today];
+      return {
+        ...h,
+        completedDates: newDates,
+        streak: isCompleted ? Math.max(0, h.streak - 1) : h.streak + 1,
+        bestStreak: isCompleted ? h.bestStreak : Math.max(h.bestStreak, h.streak + 1),
+      };
+    });
+
+    const dailyHabitsCompleted = newHabits.filter(h => h.completedDates.includes(today)).length;
+
     const updated = {
       ...state,
-      habits: state.habits.map(h => {
-        if (h.id !== habitId) return h;
-        const newDates = isCompleted
-          ? h.completedDates.filter(d => d !== today)
-          : [...h.completedDates, today];
-        return {
-          ...h,
-          completedDates: newDates,
-          streak: isCompleted ? Math.max(0, h.streak - 1) : h.streak + 1,
-          bestStreak: isCompleted ? h.bestStreak : Math.max(h.bestStreak, h.streak + 1),
-        };
-      }),
+      habits: newHabits,
       dailyProgress: {
         ...state.dailyProgress,
-        habitsCompleted: state.habits.filter(h => {
-          if (h.id === habitId) return !h.completedDates.includes(today);
-          return h.completedDates.includes(today);
-        }).length,
+        habitsCompleted: dailyHabitsCompleted,
       },
       profile: {
         ...state.profile,
-        habitsCompleted: newHabitsCompleted,
-        totalPoints: isCompleted ? state.profile.totalPoints : state.profile.totalPoints + 10,
+        habitsCompleted: isCompleted
+          ? Math.max(0, state.profile.habitsCompleted - 1)
+          : state.profile.habitsCompleted + 1,
+        totalPoints: isCompleted
+          ? Math.max(0, state.profile.totalPoints - 10)
+          : state.profile.totalPoints + 10,
       },
     };
     persist(updated);
