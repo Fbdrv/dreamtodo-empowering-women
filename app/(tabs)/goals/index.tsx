@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,16 +16,18 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, X, Trash2, ChevronRight } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import Colors from '@/constants/colors';
+import { useColors } from '@/providers/ThemeProvider';
 import { useApp } from '@/providers/AppProvider';
 import { GOAL_COLORS, GOAL_EMOJIS } from '@/mocks/data';
 import { Goal } from '@/types';
 import HabitCard from '@/components/HabitCard';
+import { ThemeColors } from '@/constants/colors';
 
 type ActiveTab = 'goals' | 'habits';
 
 export default function GoalsScreen() {
   const { goals, challenges, habits, addGoal, updateGoal, deleteGoal, addHabit, toggleHabitComplete } = useApp();
+  const colors = useColors();
   const [activeTab, setActiveTab] = useState<ActiveTab>('goals');
   const [showAddGoal, setShowAddGoal] = useState(false);
   const [showAddHabit, setShowAddHabit] = useState(false);
@@ -133,6 +135,8 @@ export default function GoalsScreen() {
 
   const addBtnDisabled = activeTab === 'goals' && goals.length >= 4;
 
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={styles.container}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
@@ -150,7 +154,7 @@ export default function GoalsScreen() {
               onPress={handleOpenAdd}
               activeOpacity={0.7}
             >
-              <Plus size={20} color={Colors.white} />
+              <Plus size={20} color={colors.white} />
             </TouchableOpacity>
           </View>
 
@@ -177,7 +181,7 @@ export default function GoalsScreen() {
                   <Text style={styles.emptyTitle}>No goals yet</Text>
                   <Text style={styles.emptySubtitle}>Create up to 4 goals to focus your journey</Text>
                   <TouchableOpacity style={styles.emptyBtn} onPress={handleOpenAdd}>
-                    <Plus size={18} color={Colors.white} />
+                    <Plus size={18} color={colors.white} />
                     <Text style={styles.emptyBtnText}>Create First Goal</Text>
                   </TouchableOpacity>
                 </View>
@@ -210,7 +214,7 @@ export default function GoalsScreen() {
                             <Text style={styles.goalStatsText}>{completed}/{total} challenges</Text>
                           </View>
                         </View>
-                        <ChevronRight size={20} color={Colors.textMuted} />
+                        <ChevronRight size={20} color={colors.textMuted} />
                       </TouchableOpacity>
                     );
                   })}
@@ -223,7 +227,7 @@ export default function GoalsScreen() {
                   <Text style={styles.emptyTitle}>No habits yet</Text>
                   <Text style={styles.emptySubtitle}>Build small daily or weekly habits to grow</Text>
                   <TouchableOpacity style={styles.emptyBtn} onPress={handleOpenAdd}>
-                    <Plus size={18} color={Colors.white} />
+                    <Plus size={18} color={colors.white} />
                     <Text style={styles.emptyBtnText}>Create First Habit</Text>
                   </TouchableOpacity>
                 </View>
@@ -255,11 +259,11 @@ export default function GoalsScreen() {
                       onPress={() => { setShowAddGoal(false); handleDeleteGoal(editingGoal); }}
                       style={styles.deleteBtn}
                     >
-                      <Trash2 size={20} color={Colors.error} />
+                      <Trash2 size={20} color={colors.error} />
                     </TouchableOpacity>
                   )}
                   <TouchableOpacity onPress={() => { setShowAddGoal(false); resetForm(); }}>
-                    <X size={22} color={Colors.textMuted} />
+                    <X size={22} color={colors.textMuted} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -267,7 +271,7 @@ export default function GoalsScreen() {
               <TextInput
                 style={styles.modalInput}
                 placeholder="What's your goal?"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
                 value={newGoalTitle}
                 onChangeText={setNewGoalTitle}
                 autoFocus
@@ -276,7 +280,7 @@ export default function GoalsScreen() {
               <TextInput
                 style={[styles.modalInput, styles.modalTextArea]}
                 placeholder="Add a description (optional)"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
                 value={newGoalDesc}
                 onChangeText={setNewGoalDesc}
                 multiline
@@ -340,14 +344,14 @@ export default function GoalsScreen() {
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>New Habit</Text>
                 <TouchableOpacity onPress={() => setShowAddHabit(false)}>
-                  <X size={22} color={Colors.textMuted} />
+                  <X size={22} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
 
               <TextInput
                 style={styles.modalInput}
                 placeholder="What habit do you want to build?"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
                 value={newHabitTitle}
                 onChangeText={setNewHabitTitle}
                 autoFocus
@@ -385,10 +389,10 @@ export default function GoalsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   safeArea: {
     flex: 1,
@@ -407,18 +411,18 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '800' as const,
-    color: Colors.text,
+    color: colors.text,
   },
   subtitle: {
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   addBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   },
@@ -428,7 +432,7 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row' as const,
     marginHorizontal: 20,
-    backgroundColor: Colors.cardAlt,
+    backgroundColor: colors.cardAlt,
     borderRadius: 12,
     padding: 3,
     marginBottom: 4,
@@ -440,7 +444,7 @@ const styles = StyleSheet.create({
     alignItems: 'center' as const,
   },
   tabActive: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
@@ -450,10 +454,10 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 14,
     fontWeight: '600' as const,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   tabTextActive: {
-    color: Colors.text,
+    color: colors.text,
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -471,12 +475,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: '700' as const,
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 15,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center' as const,
     marginBottom: 24,
   },
@@ -484,7 +488,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: 8,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 14,
     borderRadius: 24,
@@ -492,7 +496,7 @@ const styles = StyleSheet.create({
   emptyBtnText: {
     fontSize: 16,
     fontWeight: '600' as const,
-    color: Colors.white,
+    color: colors.white,
   },
   goalsList: {
     gap: 12,
@@ -500,7 +504,7 @@ const styles = StyleSheet.create({
   goalCard: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: 16,
     padding: 16,
     gap: 14,
@@ -526,12 +530,12 @@ const styles = StyleSheet.create({
   goalTitle: {
     fontSize: 16,
     fontWeight: '700' as const,
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 2,
   },
   goalDesc: {
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 8,
   },
   goalStats: {
@@ -543,7 +547,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 4,
     borderRadius: 2,
-    backgroundColor: Colors.borderLight,
+    backgroundColor: colors.borderLight,
     overflow: 'hidden' as const,
   },
   progressFillSmall: {
@@ -552,19 +556,19 @@ const styles = StyleSheet.create({
   },
   goalStatsText: {
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     fontWeight: '500' as const,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: Colors.overlay,
+    backgroundColor: colors.overlay,
     justifyContent: 'flex-end' as const,
   },
   modalContainer: {
     justifyContent: 'flex-end' as const,
   },
   modalContent: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
@@ -587,17 +591,17 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '700' as const,
-    color: Colors.text,
+    color: colors.text,
   },
   modalInput: {
     fontSize: 16,
-    color: Colors.text,
+    color: colors.text,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: 14,
     padding: 14,
     marginBottom: 14,
-    backgroundColor: Colors.cardAlt,
+    backgroundColor: colors.cardAlt,
   },
   modalTextArea: {
     minHeight: 60,
@@ -606,7 +610,7 @@ const styles = StyleSheet.create({
   modalLabel: {
     fontSize: 14,
     fontWeight: '600' as const,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 10,
     marginTop: 4,
   },
@@ -617,7 +621,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: Colors.cardAlt,
+    backgroundColor: colors.cardAlt,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     marginRight: 8,
@@ -625,8 +629,8 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   emojiPillActive: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primarySoft,
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
   },
   emojiText: {
     fontSize: 22,
@@ -644,13 +648,13 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   colorDotActive: {
-    borderColor: Colors.text,
+    borderColor: colors.text,
   },
   previewCard: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: 12,
-    backgroundColor: Colors.cardAlt,
+    backgroundColor: colors.cardAlt,
     borderRadius: 14,
     padding: 14,
     marginBottom: 20,
@@ -668,10 +672,10 @@ const styles = StyleSheet.create({
   previewTitle: {
     fontSize: 15,
     fontWeight: '600' as const,
-    color: Colors.text,
+    color: colors.text,
   },
   modalBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: 24,
     paddingVertical: 16,
     alignItems: 'center' as const,
@@ -682,7 +686,7 @@ const styles = StyleSheet.create({
   modalBtnText: {
     fontSize: 16,
     fontWeight: '700' as const,
-    color: Colors.white,
+    color: colors.white,
   },
   freqRow: {
     flexDirection: 'row' as const,
@@ -693,21 +697,21 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: Colors.cardAlt,
+    backgroundColor: colors.cardAlt,
     alignItems: 'center' as const,
     borderWidth: 2,
     borderColor: 'transparent',
   },
   freqPillActive: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primarySoft,
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
   },
   freqPillText: {
     fontSize: 15,
     fontWeight: '600' as const,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   freqPillTextActive: {
-    color: Colors.primary,
+    color: colors.primary,
   },
 });

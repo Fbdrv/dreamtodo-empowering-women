@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet, Text, Platform } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import Colors from '@/constants/colors';
+import { useColors } from '@/providers/ThemeProvider';
+import { ThemeColors } from '@/constants/colors';
 
 interface ProgressRingProps {
   progress: number;
@@ -16,13 +17,17 @@ export default function ProgressRing({
   progress,
   size = 100,
   strokeWidth = 8,
-  color = Colors.primary,
+  color,
   label,
   sublabel,
 }: ProgressRingProps) {
+  const colors = useColors();
+  const ringColor = color ?? colors.primary;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference * (1 - Math.min(progress, 1));
+
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   if (Platform.OS === 'web') {
     const progressPercent = Math.round(Math.min(progress, 1) * 100);
@@ -36,7 +41,7 @@ export default function ProgressRing({
               height: size,
               borderRadius: size / 2,
               borderWidth: strokeWidth,
-              borderColor: Colors.borderLight,
+              borderColor: colors.borderLight,
             },
           ]}
         />
@@ -49,10 +54,10 @@ export default function ProgressRing({
               borderRadius: size / 2,
               borderWidth: strokeWidth,
               borderColor: 'transparent',
-              borderTopColor: color,
-              borderRightColor: progressPercent > 25 ? color : 'transparent',
-              borderBottomColor: progressPercent > 50 ? color : 'transparent',
-              borderLeftColor: progressPercent > 75 ? color : 'transparent',
+              borderTopColor: ringColor,
+              borderRightColor: progressPercent > 25 ? ringColor : 'transparent',
+              borderBottomColor: progressPercent > 50 ? ringColor : 'transparent',
+              borderLeftColor: progressPercent > 75 ? ringColor : 'transparent',
             },
           ]}
         />
@@ -73,7 +78,7 @@ export default function ProgressRing({
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={Colors.borderLight}
+          stroke={colors.borderLight}
           strokeWidth={strokeWidth}
           fill="none"
         />
@@ -81,7 +86,7 @@ export default function ProgressRing({
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={color}
+          stroke={ringColor}
           strokeWidth={strokeWidth}
           fill="none"
           strokeDasharray={`${circumference}`}
@@ -100,7 +105,7 @@ export default function ProgressRing({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -119,11 +124,11 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 22,
     fontWeight: '700' as const,
-    color: Colors.text,
+    color: colors.text,
   },
   sublabel: {
     fontSize: 11,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     marginTop: 1,
   },
 });

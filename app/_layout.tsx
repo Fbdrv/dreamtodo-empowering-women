@@ -5,7 +5,7 @@ import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider, useAuth } from "@/providers/AuthProvider";
 import { AppProvider, useApp } from "@/providers/AppProvider";
-import Colors from "@/constants/colors";
+import { ThemeProvider, useColors } from "@/providers/ThemeProvider";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -27,7 +27,6 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       console.log("[auth-gate] Not authenticated, redirecting to login");
       router.replace("/login");
     } else if (isAuthenticated && inLoginGroup) {
-      // Check if user needs onboarding
       if (!profile.hasCompletedOnboarding) {
         console.log("[auth-gate] Authenticated but needs onboarding");
         router.replace("/onboarding");
@@ -36,11 +35,9 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         router.replace("/");
       }
     } else if (isAuthenticated && !inOnboarding && !profile.hasCompletedOnboarding) {
-      // User is authenticated, not in onboarding, but hasn't completed it
       console.log("[auth-gate] Needs onboarding, redirecting");
       router.replace("/onboarding");
     } else if (isAuthenticated && inOnboarding && profile.hasCompletedOnboarding) {
-      // User completed onboarding but somehow on onboarding screen
       console.log("[auth-gate] Already completed onboarding, redirecting to home");
       router.replace("/");
     }
@@ -50,12 +47,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 }
 
 function RootLayoutNav() {
+  const colors = useColors();
+
   return (
     <AuthGate>
       <Stack
         screenOptions={{
           headerBackTitle: "Back",
-          contentStyle: { backgroundColor: Colors.background },
+          contentStyle: { backgroundColor: colors.background },
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -87,11 +86,13 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <AuthProvider>
-          <AppProvider>
-            <RootLayoutNav />
-          </AppProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <AppProvider>
+              <RootLayoutNav />
+            </AppProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </GestureHandlerRootView>
     </QueryClientProvider>
   );

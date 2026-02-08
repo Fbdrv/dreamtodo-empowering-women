@@ -1,9 +1,10 @@
-import React, { useRef } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Check, Clock, Sparkles, ArrowRight } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import Colors from '@/constants/colors';
+import { useColors } from '@/providers/ThemeProvider';
 import { Challenge } from '@/types';
+import { ThemeColors } from '@/constants/colors';
 
 interface ChallengeCardProps {
   challenge: Challenge;
@@ -12,6 +13,7 @@ interface ChallengeCardProps {
 }
 
 export default function ChallengeCard({ challenge, onComplete, variant = 'full' }: ChallengeCardProps) {
+  const colors = useColors();
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const checkAnim = useRef(new Animated.Value(0)).current;
 
@@ -25,6 +27,8 @@ export default function ChallengeCard({ challenge, onComplete, variant = 'full' 
     Animated.spring(checkAnim, { toValue: 1, useNativeDriver: true }).start();
     onComplete(challenge.id);
   };
+
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   if (variant === 'compact') {
     return (
@@ -40,17 +44,17 @@ export default function ChallengeCard({ challenge, onComplete, variant = 'full' 
               {challenge.title}
             </Text>
             <View style={styles.metaRow}>
-              <Clock size={12} color={Colors.textMuted} />
+              <Clock size={12} color={colors.textMuted} />
               <Text style={styles.duration}>{challenge.duration}</Text>
             </View>
           </View>
         </View>
         {challenge.isCompleted ? (
           <View style={styles.checkCircle}>
-            <Check size={14} color={Colors.white} />
+            <Check size={14} color={colors.white} />
           </View>
         ) : (
-          <ArrowRight size={16} color={Colors.textMuted} />
+          <ArrowRight size={16} color={colors.textMuted} />
         )}
       </TouchableOpacity>
     );
@@ -66,11 +70,11 @@ export default function ChallengeCard({ challenge, onComplete, variant = 'full' 
       >
         <View style={styles.header}>
           <View style={styles.badge}>
-            <Sparkles size={14} color={Colors.accent} />
+            <Sparkles size={14} color={colors.accent} />
             <Text style={styles.badgeText}>Today&apos;s Challenge</Text>
           </View>
           <View style={styles.durationBadge}>
-            <Clock size={12} color={Colors.textSecondary} />
+            <Clock size={12} color={colors.textSecondary} />
             <Text style={styles.durationText}>{challenge.duration}</Text>
           </View>
         </View>
@@ -78,7 +82,7 @@ export default function ChallengeCard({ challenge, onComplete, variant = 'full' 
         {challenge.description ? <Text style={styles.description}>{challenge.description}</Text> : null}
         {challenge.isCompleted ? (
           <View style={styles.completedBanner}>
-            <Check size={16} color={Colors.success} />
+            <Check size={16} color={colors.success} />
             <Text style={styles.completedBannerText}>Completed! Great job!</Text>
           </View>
         ) : (
@@ -93,9 +97,9 @@ export default function ChallengeCard({ challenge, onComplete, variant = 'full' 
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: 20,
     padding: 20,
     shadowColor: '#000',
@@ -105,7 +109,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   completedCard: {
-    backgroundColor: Colors.secondaryLight,
+    backgroundColor: colors.secondaryLight,
   },
   header: {
     flexDirection: 'row' as const,
@@ -117,7 +121,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: 6,
-    backgroundColor: Colors.accentLight,
+    backgroundColor: colors.accentLight,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 20,
@@ -125,7 +129,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 12,
     fontWeight: '600' as const,
-    color: Colors.primary,
+    color: colors.primary,
   },
   durationBadge: {
     flexDirection: 'row' as const,
@@ -134,22 +138,22 @@ const styles = StyleSheet.create({
   },
   durationText: {
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   title: {
     fontSize: 18,
     fontWeight: '700' as const,
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 8,
     lineHeight: 24,
   },
   completedText: {
     textDecorationLine: 'line-through' as const,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   description: {
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     lineHeight: 21,
     marginBottom: 16,
   },
@@ -158,7 +162,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end' as const,
   },
   completeBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 24,
@@ -166,7 +170,7 @@ const styles = StyleSheet.create({
   completeBtnText: {
     fontSize: 14,
     fontWeight: '600' as const,
-    color: Colors.white,
+    color: colors.white,
   },
   completedBanner: {
     flexDirection: 'row' as const,
@@ -178,7 +182,7 @@ const styles = StyleSheet.create({
   },
   completedBannerText: {
     fontSize: 13,
-    color: Colors.secondary,
+    color: colors.secondary,
     fontStyle: 'italic' as const,
     flex: 1,
   },
@@ -186,7 +190,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'space-between' as const,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: 14,
     padding: 14,
     shadowColor: '#000',
@@ -201,16 +205,13 @@ const styles = StyleSheet.create({
     gap: 12,
     flex: 1,
   },
-  compactEmoji: {
-    fontSize: 22,
-  },
   compactContent: {
     flex: 1,
   },
   compactTitle: {
     fontSize: 14,
     fontWeight: '600' as const,
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 3,
   },
   metaRow: {
@@ -220,13 +221,13 @@ const styles = StyleSheet.create({
   },
   duration: {
     fontSize: 11,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   checkCircle: {
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: Colors.success,
+    backgroundColor: colors.success,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   },

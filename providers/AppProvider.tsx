@@ -364,6 +364,14 @@ export const [AppProvider, useApp] = createContextHook(() => {
     persist(updated, true);
   }, [state, persist]);
 
+  const updateProfileName = useCallback((name: string) => {
+    const updated = {
+      ...state,
+      profile: { ...state.profile, name },
+    };
+    persist(updated, true);
+  }, [state, persist]);
+
   const clearNewlyEarnedBadge = useCallback(() => {
     setNewlyEarnedBadge(null);
   }, []);
@@ -413,5 +421,6 @@ export const [AppProvider, useApp] = createContextHook(() => {
     addHabit,
     todayCompletedHabits,
     getChallengesByGoal,
+    updateProfileName,
   };
 });

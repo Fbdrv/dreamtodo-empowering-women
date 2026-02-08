@@ -1,16 +1,20 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import Colors from '@/constants/colors';
+import { useColors } from '@/providers/ThemeProvider';
 import { Dream } from '@/types';
 import { FOCUS_AREAS } from '@/mocks/data';
+import { ThemeColors } from '@/constants/colors';
 
 interface DreamCardProps {
   dream: Dream;
 }
 
 export default function DreamCard({ dream }: DreamCardProps) {
+  const colors = useColors();
   const focusArea = FOCUS_AREAS.find(f => f.id === dream.focusArea);
   const progressPercent = Math.round(dream.progress * 100);
+
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
     <View style={styles.card} testID={`dream-${dream.id}`}>
@@ -29,9 +33,9 @@ export default function DreamCard({ dream }: DreamCardProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: 18,
     padding: 18,
     width: 200,
@@ -51,7 +55,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
   },
   progressBadge: {
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
@@ -59,29 +63,29 @@ const styles = StyleSheet.create({
   progressText: {
     fontSize: 12,
     fontWeight: '700' as const,
-    color: Colors.primary,
+    color: colors.primary,
   },
   title: {
     fontSize: 16,
     fontWeight: '700' as const,
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 4,
   },
   description: {
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     lineHeight: 18,
     marginBottom: 14,
   },
   progressBarBg: {
     height: 6,
     borderRadius: 3,
-    backgroundColor: Colors.borderLight,
+    backgroundColor: colors.borderLight,
     overflow: 'hidden' as const,
   },
   progressBarFill: {
     height: '100%',
     borderRadius: 3,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
   },
 });

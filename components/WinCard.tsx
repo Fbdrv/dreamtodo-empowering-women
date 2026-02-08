@@ -1,10 +1,11 @@
-import React, { useRef } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Heart } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import Colors from '@/constants/colors';
+import { useColors } from '@/providers/ThemeProvider';
 import { CommunityWin } from '@/types';
 import { FOCUS_AREAS } from '@/mocks/data';
+import { ThemeColors } from '@/constants/colors';
 
 interface WinCardProps {
   win: CommunityWin;
@@ -12,6 +13,7 @@ interface WinCardProps {
 }
 
 export default function WinCard({ win, onCheer }: WinCardProps) {
+  const colors = useColors();
   const heartScale = useRef(new Animated.Value(1)).current;
   const focusArea = FOCUS_AREAS.find(f => f.id === win.focusArea);
 
@@ -24,6 +26,8 @@ export default function WinCard({ win, onCheer }: WinCardProps) {
     ]).start();
     onCheer(win.id);
   };
+
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
     <View style={styles.card} testID={`win-${win.id}`}>
@@ -41,8 +45,8 @@ export default function WinCard({ win, onCheer }: WinCardProps) {
         <Animated.View style={{ transform: [{ scale: heartScale }] }}>
           <Heart
             size={18}
-            color={win.hasCheered ? Colors.error : Colors.textMuted}
-            fill={win.hasCheered ? Colors.error : 'none'}
+            color={win.hasCheered ? colors.error : colors.textMuted}
+            fill={win.hasCheered ? colors.error : 'none'}
           />
         </Animated.View>
         <Text style={[styles.cheerCount, win.hasCheered && styles.cheeredText]}>
@@ -53,9 +57,9 @@ export default function WinCard({ win, onCheer }: WinCardProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: 18,
     padding: 18,
     shadowColor: '#000',
@@ -74,7 +78,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.cardAlt,
+    backgroundColor: colors.cardAlt,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   },
@@ -87,16 +91,16 @@ const styles = StyleSheet.create({
   focusLabel: {
     fontSize: 13,
     fontWeight: '600' as const,
-    color: Colors.text,
+    color: colors.text,
   },
   timeAgo: {
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     marginTop: 1,
   },
   message: {
     fontSize: 15,
-    color: Colors.text,
+    color: colors.text,
     lineHeight: 22,
     marginBottom: 14,
   },
@@ -107,10 +111,10 @@ const styles = StyleSheet.create({
   },
   cheerCount: {
     fontSize: 13,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     fontWeight: '500' as const,
   },
   cheeredText: {
-    color: Colors.error,
+    color: colors.error,
   },
 });

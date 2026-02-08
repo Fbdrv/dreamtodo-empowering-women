@@ -1,9 +1,10 @@
-import React, { useRef } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Check, Flame, RotateCcw } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import Colors from '@/constants/colors';
+import { useColors } from '@/providers/ThemeProvider';
 import { Habit } from '@/types';
+import { ThemeColors } from '@/constants/colors';
 
 interface HabitCardProps {
   habit: Habit;
@@ -11,6 +12,7 @@ interface HabitCardProps {
 }
 
 export default function HabitCard({ habit, onToggle }: HabitCardProps) {
+  const colors = useColors();
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const today = new Date().toISOString().split('T')[0];
   const isCompletedToday = habit.completedDates.includes(today);
@@ -24,6 +26,8 @@ export default function HabitCard({ habit, onToggle }: HabitCardProps) {
     onToggle(habit.id);
   };
 
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
       <TouchableOpacity
@@ -34,7 +38,7 @@ export default function HabitCard({ habit, onToggle }: HabitCardProps) {
       >
         <View style={styles.left}>
           <View style={[styles.checkbox, isCompletedToday && styles.checkboxActive]}>
-            {isCompletedToday && <Check size={14} color={Colors.white} />}
+            {isCompletedToday && <Check size={14} color={colors.white} />}
           </View>
           <View style={styles.content}>
             <Text style={[styles.title, isCompletedToday && styles.titleCompleted]} numberOfLines={1}>
@@ -43,7 +47,7 @@ export default function HabitCard({ habit, onToggle }: HabitCardProps) {
             <View style={styles.meta}>
               {habit.streak > 0 && (
                 <View style={styles.streakBadge}>
-                  <Flame size={12} color={Colors.accent} />
+                  <Flame size={12} color={colors.accent} />
                   <Text style={styles.streakText}>{habit.streak} day streak</Text>
                 </View>
               )}
@@ -52,19 +56,19 @@ export default function HabitCard({ habit, onToggle }: HabitCardProps) {
           </View>
         </View>
         {isCompletedToday ? (
-          <RotateCcw size={16} color={Colors.textMuted} />
+          <RotateCcw size={16} color={colors.textMuted} />
         ) : null}
       </TouchableOpacity>
     </Animated.View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   card: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'space-between' as const,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: 16,
     padding: 16,
     shadowColor: '#000',
@@ -74,7 +78,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   completedCard: {
-    backgroundColor: Colors.secondaryLight,
+    backgroundColor: colors.secondaryLight,
   },
   left: {
     flexDirection: 'row' as const,
@@ -87,13 +91,13 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   },
   checkboxActive: {
-    backgroundColor: Colors.success,
-    borderColor: Colors.success,
+    backgroundColor: colors.success,
+    borderColor: colors.success,
   },
   content: {
     flex: 1,
@@ -101,11 +105,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 15,
     fontWeight: '600' as const,
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 4,
   },
   titleCompleted: {
-    color: Colors.textMuted,
+    color: colors.textMuted,
     textDecorationLine: 'line-through' as const,
   },
   meta: {
@@ -120,12 +124,12 @@ const styles = StyleSheet.create({
   },
   streakText: {
     fontSize: 12,
-    color: Colors.accent,
+    color: colors.accent,
     fontWeight: '500' as const,
   },
   frequency: {
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     textTransform: 'capitalize' as const,
   },
 });

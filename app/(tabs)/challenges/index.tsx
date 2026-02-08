@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,14 +16,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, Zap, Check, Clock, Trash2, X } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import Colors from '@/constants/colors';
+import { useColors } from '@/providers/ThemeProvider';
 import { useApp } from '@/providers/AppProvider';
 import { Goal, Challenge } from '@/types';
+import { ThemeColors } from '@/constants/colors';
 
 const DURATION_OPTIONS = ['5 min', '10 min', '15 min', '30 min', '1 hour'];
 
 export default function ChallengesScreen() {
   const { challenges, goals, profile, addChallenge, completeChallenge, deleteChallenge } = useApp();
+  const colors = useColors();
   const [showAddChallenge, setShowAddChallenge] = useState(false);
   const [selectedGoalFilter, setSelectedGoalFilter] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState('');
@@ -93,6 +95,8 @@ export default function ChallengesScreen() {
 
   const getGoal = (goalId: string): Goal | undefined => goals.find(g => g.id === goalId);
 
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={styles.container}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
@@ -106,15 +110,15 @@ export default function ChallengesScreen() {
                 </Text>
               </View>
               <View style={styles.pointsBadge}>
-                <Zap size={14} color={Colors.accent} />
+                <Zap size={14} color={colors.accent} />
                 <Text style={styles.pointsText}>{profile.totalPoints} pts</Text>
               </View>
             </View>
 
             {goals.length > 0 && (
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false} 
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
                 style={styles.filterScroll}
                 contentContainerStyle={styles.filterContent}
               >
@@ -144,13 +148,13 @@ export default function ChallengesScreen() {
                 <Text style={styles.emptyEmoji}>🎯</Text>
                 <Text style={styles.emptyTitle}>No challenges yet</Text>
                 <Text style={styles.emptySubtitle}>
-                  {goals.length === 0 
+                  {goals.length === 0
                     ? 'Create a goal first, then add challenges to it'
                     : 'Add challenges to work toward your goals'}
                 </Text>
                 {goals.length > 0 && (
                   <TouchableOpacity style={styles.emptyBtn} onPress={handleOpenAdd}>
-                    <Plus size={18} color={Colors.white} />
+                    <Plus size={18} color={colors.white} />
                     <Text style={styles.emptyBtnText}>Create Challenge</Text>
                   </TouchableOpacity>
                 )}
@@ -173,7 +177,7 @@ export default function ChallengesScreen() {
                                 </View>
                               )}
                               <TouchableOpacity onPress={() => handleDelete(challenge)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                                <Trash2 size={16} color={Colors.textMuted} />
+                                <Trash2 size={16} color={colors.textMuted} />
                               </TouchableOpacity>
                             </View>
                             <Text style={styles.challengeTitle}>{challenge.title}</Text>
@@ -182,14 +186,14 @@ export default function ChallengesScreen() {
                             ) : null}
                             <View style={styles.challengeFooter}>
                               <View style={styles.durationBadge}>
-                                <Clock size={12} color={Colors.textMuted} />
+                                <Clock size={12} color={colors.textMuted} />
                                 <Text style={styles.durationText}>{challenge.duration}</Text>
                               </View>
                               <TouchableOpacity
                                 style={styles.completeBtn}
                                 onPress={() => handleComplete(challenge.id)}
                               >
-                                <Check size={16} color={Colors.white} />
+                                <Check size={16} color={colors.white} />
                                 <Text style={styles.completeBtnText}>Complete</Text>
                               </TouchableOpacity>
                             </View>
@@ -216,7 +220,7 @@ export default function ChallengesScreen() {
                                 </View>
                               )}
                               <View style={styles.completedBadge}>
-                                <Check size={12} color={Colors.success} />
+                                <Check size={12} color={colors.success} />
                               </View>
                             </View>
                             <Text style={[styles.challengeTitle, styles.challengeTitleCompleted]}>{challenge.title}</Text>
@@ -235,7 +239,7 @@ export default function ChallengesScreen() {
 
         {goals.length > 0 && (
           <TouchableOpacity style={styles.fab} onPress={handleOpenAdd} activeOpacity={0.8}>
-            <Plus size={24} color={Colors.white} />
+            <Plus size={24} color={colors.white} />
           </TouchableOpacity>
         )}
       </SafeAreaView>
@@ -250,14 +254,14 @@ export default function ChallengesScreen() {
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>New Challenge</Text>
                 <TouchableOpacity onPress={() => setShowAddChallenge(false)}>
-                  <X size={22} color={Colors.textMuted} />
+                  <X size={22} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
 
               <TextInput
                 style={styles.modalInput}
                 placeholder="Challenge title"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
                 value={newTitle}
                 onChangeText={setNewTitle}
                 autoFocus
@@ -266,7 +270,7 @@ export default function ChallengesScreen() {
               <TextInput
                 style={[styles.modalInput, styles.modalTextArea]}
                 placeholder="Description (optional)"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
                 value={newDesc}
                 onChangeText={setNewDesc}
                 multiline
@@ -326,10 +330,10 @@ export default function ChallengesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   safeArea: {
     flex: 1,
@@ -348,18 +352,18 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '800' as const,
-    color: Colors.text,
+    color: colors.text,
   },
   subtitle: {
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 4,
   },
   pointsBadge: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: 4,
-    backgroundColor: Colors.accentLight,
+    backgroundColor: colors.accentLight,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 20,
@@ -367,7 +371,7 @@ const styles = StyleSheet.create({
   pointsText: {
     fontSize: 13,
     fontWeight: '700' as const,
-    color: Colors.accent,
+    color: colors.accent,
   },
   filterScroll: {
     marginTop: 12,
@@ -380,14 +384,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: 6,
-    backgroundColor: Colors.cardAlt,
+    backgroundColor: colors.cardAlt,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 8,
   },
   filterPillActive: {
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: colors.primarySoft,
   },
   filterEmoji: {
     fontSize: 14,
@@ -395,10 +399,10 @@ const styles = StyleSheet.create({
   filterText: {
     fontSize: 13,
     fontWeight: '600' as const,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   filterTextActive: {
-    color: Colors.primary,
+    color: colors.primary,
   },
   emptyState: {
     alignItems: 'center' as const,
@@ -412,12 +416,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: '700' as const,
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 15,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center' as const,
     marginBottom: 24,
     lineHeight: 22,
@@ -426,7 +430,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: 8,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 14,
     borderRadius: 24,
@@ -434,7 +438,7 @@ const styles = StyleSheet.create({
   emptyBtnText: {
     fontSize: 16,
     fontWeight: '600' as const,
-    color: Colors.white,
+    color: colors.white,
   },
   section: {
     paddingHorizontal: 20,
@@ -443,14 +447,14 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700' as const,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 12,
   },
   challengesList: {
     gap: 12,
   },
   challengeCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: 16,
     padding: 16,
     shadowColor: '#000',
@@ -487,23 +491,23 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: Colors.secondaryLight,
+    backgroundColor: colors.secondaryLight,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   },
   challengeTitle: {
     fontSize: 16,
     fontWeight: '700' as const,
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 4,
   },
   challengeTitleCompleted: {
     textDecorationLine: 'line-through' as const,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   challengeDesc: {
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 12,
     lineHeight: 20,
   },
@@ -520,14 +524,14 @@ const styles = StyleSheet.create({
   },
   durationText: {
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     fontWeight: '500' as const,
   },
   completeBtn: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: 6,
-    backgroundColor: Colors.success,
+    backgroundColor: colors.success,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
@@ -535,7 +539,7 @@ const styles = StyleSheet.create({
   completeBtnText: {
     fontSize: 13,
     fontWeight: '700' as const,
-    color: Colors.white,
+    color: colors.white,
   },
   fab: {
     position: 'absolute' as const,
@@ -544,10 +548,10 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
-    shadowColor: Colors.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -555,14 +559,14 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: Colors.overlay,
+    backgroundColor: colors.overlay,
     justifyContent: 'flex-end' as const,
   },
   modalContainer: {
     justifyContent: 'flex-end' as const,
   },
   modalContent: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
@@ -577,17 +581,17 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '700' as const,
-    color: Colors.text,
+    color: colors.text,
   },
   modalInput: {
     fontSize: 16,
-    color: Colors.text,
+    color: colors.text,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: 14,
     padding: 14,
     marginBottom: 14,
-    backgroundColor: Colors.cardAlt,
+    backgroundColor: colors.cardAlt,
   },
   modalTextArea: {
     minHeight: 60,
@@ -596,7 +600,7 @@ const styles = StyleSheet.create({
   modalLabel: {
     fontSize: 14,
     fontWeight: '600' as const,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 10,
     marginTop: 4,
   },
@@ -610,7 +614,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 14,
-    backgroundColor: Colors.cardAlt,
+    backgroundColor: colors.cardAlt,
     marginRight: 10,
     borderWidth: 2,
     borderColor: 'transparent',
@@ -621,7 +625,7 @@ const styles = StyleSheet.create({
   goalOptionText: {
     fontSize: 14,
     fontWeight: '600' as const,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   durationRow: {
     flexDirection: 'row' as const,
@@ -633,24 +637,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: Colors.cardAlt,
+    backgroundColor: colors.cardAlt,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   durationOptionActive: {
-    backgroundColor: Colors.primarySoft,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
   },
   durationOptionText: {
     fontSize: 13,
     fontWeight: '600' as const,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   durationOptionTextActive: {
-    color: Colors.primary,
+    color: colors.primary,
   },
   modalBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: 24,
     paddingVertical: 16,
     alignItems: 'center' as const,
@@ -661,6 +665,6 @@ const styles = StyleSheet.create({
   modalBtnText: {
     fontSize: 16,
     fontWeight: '700' as const,
-    color: Colors.white,
+    color: colors.white,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,13 +8,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Heart, Users } from 'lucide-react-native';
-import Colors from '@/constants/colors';
+import { useColors } from '@/providers/ThemeProvider';
 import { COMMUNITY_WINS } from '@/mocks/data';
 import WinCard from '@/components/WinCard';
 import { CommunityWin } from '@/types';
+import { ThemeColors } from '@/constants/colors';
 
 export default function CommunityScreen() {
   const [communityWins, setCommunityWins] = useState<CommunityWin[]>(COMMUNITY_WINS);
+  const colors = useColors();
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -28,6 +30,8 @@ export default function CommunityScreen() {
   };
 
   const totalCheers = communityWins.reduce((sum, w) => sum + w.cheers, 0);
+
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
     <View style={styles.container}>
@@ -46,12 +50,12 @@ export default function CommunityScreen() {
 
             <View style={styles.statsRow}>
               <View style={styles.statCard}>
-                <Users size={20} color={Colors.primary} />
+                <Users size={20} color={colors.primary} />
                 <Text style={styles.statNumber}>{communityWins.length}</Text>
                 <Text style={styles.statLabel}>wins shared</Text>
               </View>
               <View style={styles.statCard}>
-                <Heart size={20} color={Colors.error} />
+                <Heart size={20} color={colors.error} />
                 <Text style={styles.statNumber}>{totalCheers}</Text>
                 <Text style={styles.statLabel}>total cheers</Text>
               </View>
@@ -87,10 +91,10 @@ export default function CommunityScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   safeArea: {
     flex: 1,
@@ -111,10 +115,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '800' as const,
-    color: Colors.text,
+    color: colors.text,
   },
   comingSoonPill: {
-    backgroundColor: Colors.accentLight,
+    backgroundColor: colors.accentLight,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -122,12 +126,12 @@ const styles = StyleSheet.create({
   comingSoonText: {
     fontSize: 11,
     fontWeight: '700' as const,
-    color: Colors.primary,
+    color: colors.primary,
     letterSpacing: 0.3,
   },
   subtitle: {
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 4,
   },
   statsRow: {
@@ -138,7 +142,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: 16,
     padding: 16,
     alignItems: 'center' as const,
@@ -152,11 +156,11 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 22,
     fontWeight: '800' as const,
-    color: Colors.text,
+    color: colors.text,
   },
   statLabel: {
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   feedHeader: {
     flexDirection: 'row' as const,
@@ -169,7 +173,7 @@ const styles = StyleSheet.create({
   feedTitle: {
     fontSize: 18,
     fontWeight: '700' as const,
-    color: Colors.text,
+    color: colors.text,
   },
   liveBadge: {
     flexDirection: 'row' as const,
@@ -180,11 +184,11 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.success,
+    backgroundColor: colors.success,
   },
   liveText: {
     fontSize: 12,
-    color: Colors.success,
+    color: colors.success,
     fontWeight: '600' as const,
   },
   winsList: {
@@ -194,7 +198,7 @@ const styles = StyleSheet.create({
   encourageCard: {
     marginHorizontal: 20,
     marginTop: 24,
-    backgroundColor: Colors.accentLight,
+    backgroundColor: colors.accentLight,
     borderRadius: 18,
     padding: 24,
     alignItems: 'center' as const,
@@ -206,12 +210,12 @@ const styles = StyleSheet.create({
   encourageTitle: {
     fontSize: 16,
     fontWeight: '700' as const,
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 6,
   },
   encourageText: {
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center' as const,
     lineHeight: 19,
   },

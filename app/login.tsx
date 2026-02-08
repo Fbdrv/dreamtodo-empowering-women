@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,13 +15,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Sparkles, Mail, Lock, User, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import Colors from '@/constants/colors';
+import { useColors } from '@/providers/ThemeProvider';
 import { useAuth } from '@/providers/AuthProvider';
+import { ThemeColors } from '@/constants/colors';
 
 type Mode = 'login' | 'register';
 
 export default function LoginScreen() {
   const { login, register, isLoggingIn, isRegistering, loginError, registerError } = useAuth();
+  const colors = useColors();
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState<string>('');
   const [username, setUsername] = useState<string>('');
@@ -102,6 +104,8 @@ export default function LoginScreen() {
 
   const displayError = localError || serverError;
 
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
@@ -116,7 +120,7 @@ export default function LoginScreen() {
           >
             <View style={styles.header}>
               <View style={styles.iconCircle}>
-                <Sparkles size={32} color={Colors.accent} />
+                <Sparkles size={32} color={colors.accent} />
               </View>
               <Text style={styles.appTitle}>From Dreaming{'\n'}to Doing</Text>
               <Text style={styles.appSubtitle}>
@@ -161,12 +165,12 @@ export default function LoginScreen() {
 
               <View style={styles.inputGroup}>
                 <View style={styles.inputWrapper}>
-                  <Mail size={18} color={Colors.textMuted} style={styles.inputIcon} />
+                  <Mail size={18} color={colors.textMuted} style={styles.inputIcon} />
                   <TextInput
                     testID="email-input"
                     style={styles.input}
                     placeholder="Email address"
-                    placeholderTextColor={Colors.textMuted}
+                    placeholderTextColor={colors.textMuted}
                     value={email}
                     onChangeText={(t) => { setEmail(t); setLocalError(null); }}
                     keyboardType="email-address"
@@ -178,12 +182,12 @@ export default function LoginScreen() {
 
                 {mode === 'register' && (
                   <View style={styles.inputWrapper}>
-                    <User size={18} color={Colors.textMuted} style={styles.inputIcon} />
+                    <User size={18} color={colors.textMuted} style={styles.inputIcon} />
                     <TextInput
                       testID="username-input"
                       style={styles.input}
                       placeholder="Username"
-                      placeholderTextColor={Colors.textMuted}
+                      placeholderTextColor={colors.textMuted}
                       value={username}
                       onChangeText={(t) => { setUsername(t); setLocalError(null); }}
                       autoCapitalize="words"
@@ -194,12 +198,12 @@ export default function LoginScreen() {
                 )}
 
                 <View style={styles.inputWrapper}>
-                  <Lock size={18} color={Colors.textMuted} style={styles.inputIcon} />
+                  <Lock size={18} color={colors.textMuted} style={styles.inputIcon} />
                   <TextInput
                     testID="password-input"
                     style={[styles.input, styles.passwordInput]}
                     placeholder="Password"
-                    placeholderTextColor={Colors.textMuted}
+                    placeholderTextColor={colors.textMuted}
                     value={password}
                     onChangeText={(t) => { setPassword(t); setLocalError(null); }}
                     secureTextEntry={!showPassword}
@@ -212,9 +216,9 @@ export default function LoginScreen() {
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
                     {showPassword ? (
-                      <EyeOff size={18} color={Colors.textMuted} />
+                      <EyeOff size={18} color={colors.textMuted} />
                     ) : (
-                      <Eye size={18} color={Colors.textMuted} />
+                      <Eye size={18} color={colors.textMuted} />
                     )}
                   </TouchableOpacity>
                 </View>
@@ -228,13 +232,13 @@ export default function LoginScreen() {
                 activeOpacity={0.8}
               >
                 {isLoading ? (
-                  <ActivityIndicator color={Colors.white} size="small" />
+                  <ActivityIndicator color={colors.white} size="small" />
                 ) : (
                   <>
                     <Text style={styles.submitBtnText}>
                       {mode === 'login' ? 'Sign In' : 'Create Account'}
                     </Text>
-                    <ArrowRight size={18} color={Colors.white} />
+                    <ArrowRight size={18} color={colors.white} />
                   </>
                 )}
               </TouchableOpacity>
@@ -261,10 +265,10 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   safeArea: {
     flex: 1,
@@ -286,7 +290,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: Colors.accentLight,
+    backgroundColor: colors.accentLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
@@ -294,19 +298,19 @@ const styles = StyleSheet.create({
   appTitle: {
     fontSize: 30,
     fontWeight: '800' as const,
-    color: Colors.text,
+    color: colors.text,
     textAlign: 'center',
     lineHeight: 38,
     marginBottom: 8,
   },
   appSubtitle: {
     fontSize: 15,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
   tabRow: {
     flexDirection: 'row',
-    backgroundColor: Colors.cardAlt,
+    backgroundColor: colors.cardAlt,
     borderRadius: 14,
     padding: 4,
     marginBottom: 24,
@@ -318,7 +322,7 @@ const styles = StyleSheet.create({
     borderRadius: 11,
   },
   tabActive: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
@@ -328,23 +332,23 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 14,
     fontWeight: '600' as const,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   tabTextActive: {
-    color: Colors.text,
+    color: colors.text,
   },
   formContainer: {
     gap: 20,
   },
   errorBanner: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: colors.cardAlt,
     borderRadius: 12,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: colors.error,
   },
   errorText: {
-    color: Colors.error,
+    color: colors.error,
     fontSize: 13,
     fontWeight: '500' as const,
     textAlign: 'center',
@@ -355,10 +359,10 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     paddingHorizontal: 16,
     height: 54,
   },
@@ -369,7 +373,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '500' as const,
-    color: Colors.text,
+    color: colors.text,
     height: '100%' as unknown as number,
   },
   passwordInput: {
@@ -385,11 +389,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: 28,
     paddingVertical: 16,
     gap: 8,
-    shadowColor: Colors.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -401,7 +405,7 @@ const styles = StyleSheet.create({
   submitBtnText: {
     fontSize: 16,
     fontWeight: '700' as const,
-    color: Colors.white,
+    color: colors.white,
   },
   footer: {
     flexDirection: 'row',
@@ -410,11 +414,11 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   footerLink: {
     fontSize: 14,
     fontWeight: '700' as const,
-    color: Colors.primary,
+    color: colors.primary,
   },
 });

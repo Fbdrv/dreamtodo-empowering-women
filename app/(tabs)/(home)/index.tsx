@@ -4,18 +4,18 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-
   Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Flame, Sparkles, TrendingUp } from 'lucide-react-native';
-import Colors from '@/constants/colors';
+import { useColors } from '@/providers/ThemeProvider';
 import { useApp } from '@/providers/AppProvider';
 import { AFFIRMATIONS } from '@/mocks/data';
 import ProgressRing from '@/components/ProgressRing';
 import ChallengeCard from '@/components/ChallengeCard';
 import HabitCard from '@/components/HabitCard';
 import DreamCard from '@/components/DreamCard';
+import { ThemeColors } from '@/constants/colors';
 
 export default function HomeScreen() {
   const {
@@ -28,6 +28,7 @@ export default function HomeScreen() {
     completeChallenge,
   } = useApp();
 
+  const colors = useColors();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
 
@@ -54,6 +55,8 @@ export default function HomeScreen() {
   const habitProgress = habits.length > 0 ? todayCompletedHabits / habits.length : 0;
   const displayName = profile.name || 'Friend';
 
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={styles.container}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
@@ -69,12 +72,12 @@ export default function HomeScreen() {
                   <Text style={styles.name}>{displayName} ✨</Text>
                 </View>
                 <View style={styles.streakBadge}>
-                  <Flame size={18} color={Colors.accent} />
+                  <Flame size={18} color={colors.accent} />
                   <Text style={styles.streakNumber}>{profile.currentStreak}</Text>
                 </View>
               </View>
               <View style={styles.affirmationCard}>
-                <Sparkles size={16} color={Colors.primary} />
+                <Sparkles size={16} color={colors.primary} />
                 <Text style={styles.affirmationText}>{todayAffirmation}</Text>
               </View>
             </View>
@@ -86,7 +89,7 @@ export default function HomeScreen() {
                   progress={habitProgress}
                   size={90}
                   strokeWidth={7}
-                  color={Colors.primary}
+                  color={colors.primary}
                   label={`${todayCompletedHabits}`}
                   sublabel={`of ${habits.length}`}
                 />
@@ -122,7 +125,7 @@ export default function HomeScreen() {
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
                   <Text style={styles.sectionTitle}>Your Dreams</Text>
-                  <TrendingUp size={18} color={Colors.primary} />
+                  <TrendingUp size={18} color={colors.primary} />
                 </View>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dreamList}>
                   {dreams.map((dream, index) => (
@@ -152,10 +155,10 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   safeArea: {
     flex: 1,
@@ -179,20 +182,20 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontSize: 16,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontWeight: '500' as const,
   },
   name: {
     fontSize: 28,
     fontWeight: '800' as const,
-    color: Colors.text,
+    color: colors.text,
     marginTop: 2,
   },
   streakBadge: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: 4,
-    backgroundColor: Colors.accentLight,
+    backgroundColor: colors.accentLight,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
@@ -200,19 +203,19 @@ const styles = StyleSheet.create({
   streakNumber: {
     fontSize: 16,
     fontWeight: '800' as const,
-    color: Colors.accent,
+    color: colors.accent,
   },
   affirmationCard: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: 10,
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: colors.primarySoft,
     padding: 14,
     borderRadius: 14,
   },
   affirmationText: {
     fontSize: 14,
-    color: Colors.primary,
+    color: colors.primary,
     fontWeight: '500' as const,
     fontStyle: 'italic' as const,
     flex: 1,
@@ -226,7 +229,7 @@ const styles = StyleSheet.create({
   progressRow: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: 20,
     padding: 20,
     marginTop: 12,
@@ -249,17 +252,17 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 20,
     fontWeight: '800' as const,
-    color: Colors.text,
+    color: colors.text,
   },
   statLabel: {
     fontSize: 11,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     marginTop: 2,
   },
   statDivider: {
     width: 1,
     height: 30,
-    backgroundColor: Colors.borderLight,
+    backgroundColor: colors.borderLight,
   },
   section: {
     paddingHorizontal: 20,
@@ -273,7 +276,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700' as const,
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 2,
   },
   dreamList: {

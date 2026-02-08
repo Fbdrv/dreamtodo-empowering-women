@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,14 +14,16 @@ import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowRight, ArrowLeft, Sparkles } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import Colors from '@/constants/colors';
+import { useColors } from '@/providers/ThemeProvider';
 import { FocusArea } from '@/types';
 import { FOCUS_AREAS, DREAM_SUGGESTIONS } from '@/mocks/data';
 import { useApp } from '@/providers/AppProvider';
+import { ThemeColors } from '@/constants/colors';
 
 
 export default function OnboardingScreen() {
   const { completeOnboarding } = useApp();
+  const colors = useColors();
   const [step, setStep] = useState<number>(0);
   const [name, setName] = useState<string>('');
   const [selectedAreas, setSelectedAreas] = useState<FocusArea[]>([]);
@@ -86,13 +88,15 @@ export default function OnboardingScreen() {
     (DREAM_SUGGESTIONS[area] || []).map(d => d)
   );
 
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const renderStep = () => {
     switch (step) {
       case 0:
         return (
           <View style={styles.stepContent}>
             <View style={styles.welcomeIcon}>
-              <Sparkles size={40} color={Colors.accent} />
+              <Sparkles size={40} color={colors.accent} />
             </View>
             <Text style={styles.welcomeTitle}>From Dreaming{'\n'}to Doing</Text>
             <Text style={styles.welcomeSubtitle}>
@@ -122,7 +126,7 @@ export default function OnboardingScreen() {
               testID="name-input"
               style={styles.nameInput}
               placeholder="Your first name"
-              placeholderTextColor={Colors.textMuted}
+              placeholderTextColor={colors.textMuted}
               value={name}
               onChangeText={setName}
               autoFocus
@@ -197,7 +201,7 @@ export default function OnboardingScreen() {
         <View style={styles.topBar}>
           {step > 0 ? (
             <TouchableOpacity onPress={goBack} style={styles.backBtn}>
-              <ArrowLeft size={20} color={Colors.text} />
+              <ArrowLeft size={20} color={colors.text} />
             </TouchableOpacity>
           ) : (
             <View style={styles.backBtn} />
@@ -242,7 +246,7 @@ export default function OnboardingScreen() {
             <Text style={styles.continueBtnText}>
               {step === 0 ? "Let's Begin" : step === 3 ? "Start My Journey" : "Continue"}
             </Text>
-            <ArrowRight size={18} color={Colors.white} />
+            <ArrowRight size={18} color={colors.white} />
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -250,10 +254,10 @@ export default function OnboardingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   safeArea: {
     flex: 1,
@@ -279,18 +283,18 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.border,
+    backgroundColor: colors.border,
   },
   dotActive: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     width: 24,
   },
   dotDone: {
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: colors.primaryLight,
   },
   skipText: {
     fontSize: 14,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     fontWeight: '500' as const,
   },
   contentContainer: {
@@ -305,7 +309,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: Colors.accentLight,
+    backgroundColor: colors.accentLight,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     marginBottom: 28,
@@ -313,13 +317,13 @@ const styles = StyleSheet.create({
   welcomeTitle: {
     fontSize: 34,
     fontWeight: '800' as const,
-    color: Colors.text,
+    color: colors.text,
     lineHeight: 42,
     marginBottom: 16,
   },
   welcomeSubtitle: {
     fontSize: 16,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     lineHeight: 24,
     marginBottom: 36,
   },
@@ -335,11 +339,11 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
   },
   philosophyText: {
     fontSize: 16,
-    color: Colors.text,
+    color: colors.text,
     fontWeight: '500' as const,
   },
   stepEmoji: {
@@ -349,21 +353,21 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontSize: 28,
     fontWeight: '800' as const,
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 8,
   },
   stepSubtitle: {
     fontSize: 15,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     lineHeight: 22,
     marginBottom: 28,
   },
   nameInput: {
     fontSize: 20,
     fontWeight: '600' as const,
-    color: Colors.text,
+    color: colors.text,
     borderBottomWidth: 2,
-    borderBottomColor: Colors.primary,
+    borderBottomColor: colors.primary,
     paddingVertical: 14,
     paddingHorizontal: 4,
   },
@@ -375,15 +379,15 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   areaCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: 16,
     padding: 16,
     borderWidth: 2,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   areaCardSelected: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primarySoft,
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
   },
   areaEmoji: {
     fontSize: 24,
@@ -392,15 +396,15 @@ const styles = StyleSheet.create({
   areaLabel: {
     fontSize: 15,
     fontWeight: '700' as const,
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 3,
   },
   areaLabelSelected: {
-    color: Colors.primary,
+    color: colors.primary,
   },
   areaDesc: {
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     lineHeight: 18,
   },
   dreamScroll: {
@@ -410,36 +414,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'space-between' as const,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: 14,
     padding: 16,
     marginBottom: 10,
     borderWidth: 2,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   dreamOptionSelected: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primarySoft,
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
   },
   dreamOptionText: {
     fontSize: 15,
     fontWeight: '600' as const,
-    color: Colors.text,
+    color: colors.text,
     flex: 1,
   },
   dreamOptionTextSelected: {
-    color: Colors.primary,
+    color: colors.primary,
   },
   dreamCheck: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   },
   dreamCheckText: {
-    color: Colors.white,
+    color: colors.white,
     fontSize: 14,
     fontWeight: '700' as const,
   },
@@ -452,7 +456,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: 28,
     paddingVertical: 16,
     gap: 8,
@@ -463,6 +467,6 @@ const styles = StyleSheet.create({
   continueBtnText: {
     fontSize: 16,
     fontWeight: '700' as const,
-    color: Colors.white,
+    color: colors.white,
   },
 });
