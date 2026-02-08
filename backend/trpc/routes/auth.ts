@@ -1,4 +1,5 @@
-import * as z from "zod";
+import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, publicProcedure, protectedProcedure } from "../create-context";
 import { createUser, loginUser, deleteSession } from "../../db/store";
 
@@ -14,7 +15,7 @@ export const authRouter = createTRPCRouter({
     .mutation(({ input }) => {
       const result = createUser(input.email, input.username, input.password);
       if ("error" in result) {
-        throw new Error(result.error);
+        throw new TRPCError({ code: "BAD_REQUEST", message: result.error });
       }
       return {
         token: result.token,
@@ -36,7 +37,7 @@ export const authRouter = createTRPCRouter({
     .mutation(({ input }) => {
       const result = loginUser(input.email, input.password);
       if ("error" in result) {
-        throw new Error(result.error);
+        throw new TRPCError({ code: "BAD_REQUEST", message: result.error });
       }
       return {
         token: result.token,

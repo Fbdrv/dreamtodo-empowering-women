@@ -20,6 +20,7 @@ import {
   SAMPLE_HABITS,
 } from '@/mocks/data';
 import { trpc } from '@/lib/trpc';
+import { useAuth } from '@/providers/AuthProvider';
 
 const STORAGE_KEY = 'dreaming_to_doing_app';
 
@@ -65,6 +66,7 @@ const defaultState: AppState = {
 export const [AppProvider, useApp] = createContextHook(() => {
   const [state, setState] = useState<AppState>(defaultState);
   const queryClient = useQueryClient();
+  const { isAuthenticated } = useAuth();
 
   const stateQuery = useQuery({
     queryKey: ['appState'],
@@ -83,6 +85,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
   });
 
   const remoteDataQuery = trpc.userData.getData.useQuery(undefined, {
+    enabled: isAuthenticated,
     retry: false,
     staleTime: 30000,
   });
@@ -133,15 +136,17 @@ export const [AppProvider, useApp] = createContextHook(() => {
   const persist = useCallback((newState: AppState) => {
     setState(newState);
     saveLocal(newState);
-    const dataToSync = {
-      profile: newState.profile,
-      dreams: newState.dreams,
-      habits: newState.habits,
-      badges: newState.badges,
-      dailyProgress: newState.dailyProgress,
-    };
-    saveRemote({ data: dataToSync as Record<string, unknown> });
-  }, [saveLocal, saveRemote]);
+    if (isAuthenticated) {
+      const dataToSync = {
+        profile: newState.profile,
+        dreams: newState.dreams,
+        habits: newState.habits,
+        badges: newState.badges,
+        dailyProgress: newState.dailyProgress,
+      };
+      saveRemote({ data: dataToSync as Record<string, unknown> });
+    }
+  }, [saveLocal, saveRemote, isAuthenticated]);
 
   const completeOnboarding = useCallback((name: string, focusAreas: FocusArea[], dreamGoals: string[]) => {
     const updated = {
