@@ -4,7 +4,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  FlatList,
+
   Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -124,15 +124,14 @@ export default function HomeScreen() {
                   <Text style={styles.sectionTitle}>Your Dreams</Text>
                   <TrendingUp size={18} color={Colors.primary} />
                 </View>
-                <FlatList
-                  data={dreams}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  keyExtractor={item => item.id}
-                  contentContainerStyle={styles.dreamList}
-                  renderItem={({ item }) => <DreamCard dream={item} />}
-                  ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
-                />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dreamList}>
+                  {dreams.map((dream, index) => (
+                    <View key={dream.id} style={{ flexDirection: 'row' as const }}>
+                      {index > 0 && <View style={{ width: 12 }} />}
+                      <DreamCard dream={dream} />
+                    </View>
+                  ))}
+                </ScrollView>
               </View>
             )}
 
