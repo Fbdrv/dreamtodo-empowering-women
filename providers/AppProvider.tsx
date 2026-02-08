@@ -35,12 +35,12 @@ const defaultProfile: UserProfile = {
   name: '',
   focusAreas: [],
   dreamGoals: [],
-  totalPoints: 245,
-  currentStreak: 7,
-  bestStreak: 14,
-  habitsCompleted: 48,
-  challengesCompleted: 23,
-  joinedAt: '2026-01-15',
+  totalPoints: 0,
+  currentStreak: 0,
+  bestStreak: 0,
+  habitsCompleted: 0,
+  challengesCompleted: 0,
+  joinedAt: new Date().toISOString().split('T')[0],
   hasCompletedOnboarding: false,
 };
 
