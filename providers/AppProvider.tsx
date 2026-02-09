@@ -15,6 +15,13 @@ import {
   BadgeDefinition,
 } from '@/types';
 import { BADGE_DEFINITIONS } from '@/mocks/data';
+import {
+  NotificationSettings,
+  DEFAULT_NOTIFICATION_SETTINGS,
+  requestNotificationPermissions,
+  scheduleDailyReminder,
+  cancelDailyReminder,
+} from '@/lib/notifications';
 
 const STORAGE_KEY_PREFIX = 'dreaming_to_doing_app_';
 
@@ -26,6 +33,7 @@ interface AppState {
   challenges: Challenge[];
   earnedBadges: EarnedBadge[];
   dailyProgress: DailyProgress;
+  notificationSettings: NotificationSettings;
 }
 
 const defaultProfile: UserProfile = {
@@ -55,6 +63,7 @@ const getDefaultState = (): AppState => ({
     challengeCompleted: false,
     points: 0,
   },
+  notificationSettings: DEFAULT_NOTIFICATION_SETTINGS,
 });
 
 export const [AppProvider, useApp] = createContextHook(() => {
@@ -115,6 +124,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
         challenges: newState.challenges,
         earnedBadges: newState.earnedBadges,
         dailyProgress: newState.dailyProgress,
+        notificationSettings: newState.notificationSettings,
       }));
       console.log('[app] Saved state locally for user:', user?.id);
       return newState;
@@ -372,6 +382,28 @@ export const [AppProvider, useApp] = createContextHook(() => {
     persist(updated, true);
   }, [state, persist]);
 
+  const updateNotificationSettings = useCallback(async (settings: Partial<NotificationSettings>) => {
+    const newSettings = { ...state.notificationSettings, ...settings };
+    const updated = { ...state, notificationSettings: newSettings };
+    persist(updated, true);
+
+    if (newSettings.dailyReminderEnabled) {
+      const granted = await requestNotificationPermissions();
+      if (granted) {
+        await scheduleDailyReminder(newSettings.reminderHour, newSettings.reminderMinute);
+      } else {
+        console.log('[app] Notification permission denied, disabling reminder');
+        const reverted = {
+          ...updated,
+          notificationSettings: { ...newSettings, dailyReminderEnabled: false },
+        };
+        persist(reverted, true);
+      }
+    } else {
+      await cancelDailyReminder();
+    }
+  }, [state, persist]);
+
   const clearNewlyEarnedBadge = useCallback(() => {
     setNewlyEarnedBadge(null);
   }, []);
@@ -422,5 +454,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
     todayCompletedHabits,
     getChallengesByGoal,
     updateProfileName,
+    notificationSettings: state.notificationSettings,
+    updateNotificationSettings,
   };
 });

@@ -6,8 +6,10 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider, useAuth } from "@/providers/AuthProvider";
 import { AppProvider, useApp } from "@/providers/AppProvider";
 import { ThemeProvider, useColors } from "@/providers/ThemeProvider";
+import { configureNotificationHandler } from "@/lib/notifications";
 
 SplashScreen.preventAutoHideAsync();
+configureNotificationHandler();
 
 const queryClient = new QueryClient();
 

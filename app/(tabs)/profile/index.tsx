@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useMemo } from 'react';
+import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,9 +11,10 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Flame, Award, Calendar, TrendingUp, Star, LogOut, X, Settings, Check, Sun, Moon, Smartphone } from 'lucide-react-native';
+import { Flame, Award, Calendar, TrendingUp, Star, LogOut, X, Settings, Check, Sun, Moon, Smartphone, Bell, Clock, ChevronUp, ChevronDown } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useColors, useTheme, ThemePreference } from '@/providers/ThemeProvider';
 import { useApp } from '@/providers/AppProvider';
@@ -22,7 +23,7 @@ import { FOCUS_AREAS } from '@/mocks/data';
 import { ThemeColors } from '@/constants/colors';
 
 export default function ProfileScreen() {
-  const { profile, badges, newlyEarnedBadge, clearNewlyEarnedBadge, updateProfileName } = useApp();
+  const { profile, badges, newlyEarnedBadge, clearNewlyEarnedBadge, updateProfileName, notificationSettings, updateNotificationSettings } = useApp();
   const { user, logout } = useAuth();
   const colors = useColors();
   const { themePreference, setTheme } = useTheme();
@@ -30,6 +31,8 @@ export default function ProfileScreen() {
 
   const [showSettings, setShowSettings] = useState(false);
   const [editName, setEditName] = useState('');
+  const [localHour, setLocalHour] = useState(notificationSettings.reminderHour);
+  const [localMinute, setLocalMinute] = useState(notificationSettings.reminderMinute);
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
@@ -52,6 +55,8 @@ export default function ProfileScreen() {
 
   const handleOpenSettings = () => {
     setEditName(profile.name || '');
+    setLocalHour(notificationSettings.reminderHour);
+    setLocalMinute(notificationSettings.reminderMinute);
     setShowSettings(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
@@ -67,6 +72,35 @@ export default function ProfileScreen() {
     setTheme(pref);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
+
+  const handleToggleReminder = useCallback((value: boolean) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    updateNotificationSettings({
+      dailyReminderEnabled: value,
+      reminderHour: localHour,
+      reminderMinute: localMinute,
+    });
+  }, [updateNotificationSettings, localHour, localMinute]);
+
+  const adjustHour = useCallback((delta: number) => {
+    const newHour = (localHour + delta + 24) % 24;
+    setLocalHour(newHour);
+    if (notificationSettings.dailyReminderEnabled) {
+      updateNotificationSettings({ reminderHour: newHour });
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [localHour, notificationSettings.dailyReminderEnabled, updateNotificationSettings]);
+
+  const adjustMinute = useCallback((delta: number) => {
+    const newMinute = (localMinute + delta + 60) % 60;
+    setLocalMinute(newMinute);
+    if (notificationSettings.dailyReminderEnabled) {
+      updateNotificationSettings({ reminderMinute: newMinute });
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [localMinute, notificationSettings.dailyReminderEnabled, updateNotificationSettings]);
+
+
 
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -282,6 +316,78 @@ export default function ProfileScreen() {
                       <Check size={18} color={colors.white} />
                     </TouchableOpacity>
                   </View>
+                </View>
+
+                <Text style={styles.settingsSectionLabel}>Notifications</Text>
+                <View style={styles.settingsCard}>
+                  <View style={styles.reminderToggleRow}>
+                    <View style={styles.reminderLabelRow}>
+                      <Bell size={18} color={colors.primary} />
+                      <Text style={styles.settingsFieldLabel}>Daily Reminder</Text>
+                    </View>
+                    <Switch
+                      testID="reminder-toggle"
+                      value={notificationSettings.dailyReminderEnabled}
+                      onValueChange={handleToggleReminder}
+                      trackColor={{ false: colors.borderLight, true: colors.primaryLight }}
+                      thumbColor={notificationSettings.dailyReminderEnabled ? colors.primary : colors.textMuted}
+                    />
+                  </View>
+                  {notificationSettings.dailyReminderEnabled && (
+                    <View style={styles.timePickerSection}>
+                      <View style={styles.timePickerLabelRow}>
+                        <Clock size={16} color={colors.textSecondary} />
+                        <Text style={styles.timePickerLabel}>Remind me at</Text>
+                      </View>
+                      <View style={styles.timePickerRow}>
+                        <View style={styles.timeSpinner}>
+                          <TouchableOpacity
+                            style={styles.spinnerBtn}
+                            onPress={() => adjustHour(1)}
+                            activeOpacity={0.6}
+                          >
+                            <ChevronUp size={18} color={colors.textSecondary} />
+                          </TouchableOpacity>
+                          <Text style={styles.timeDigit}>{(localHour === 0 ? 12 : localHour > 12 ? localHour - 12 : localHour).toString().padStart(2, '0')}</Text>
+                          <TouchableOpacity
+                            style={styles.spinnerBtn}
+                            onPress={() => adjustHour(-1)}
+                            activeOpacity={0.6}
+                          >
+                            <ChevronDown size={18} color={colors.textSecondary} />
+                          </TouchableOpacity>
+                        </View>
+                        <Text style={styles.timeSeparator}>:</Text>
+                        <View style={styles.timeSpinner}>
+                          <TouchableOpacity
+                            style={styles.spinnerBtn}
+                            onPress={() => adjustMinute(5)}
+                            activeOpacity={0.6}
+                          >
+                            <ChevronUp size={18} color={colors.textSecondary} />
+                          </TouchableOpacity>
+                          <Text style={styles.timeDigit}>{localMinute.toString().padStart(2, '0')}</Text>
+                          <TouchableOpacity
+                            style={styles.spinnerBtn}
+                            onPress={() => adjustMinute(-5)}
+                            activeOpacity={0.6}
+                          >
+                            <ChevronDown size={18} color={colors.textSecondary} />
+                          </TouchableOpacity>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.amPmBtn}
+                          onPress={() => adjustHour(localHour >= 12 ? -12 : 12)}
+                          activeOpacity={0.6}
+                        >
+                          <Text style={styles.amPmText}>{localHour >= 12 ? 'PM' : 'AM'}</Text>
+                        </TouchableOpacity>
+                      </View>
+                      {Platform.OS === 'web' && (
+                        <Text style={styles.webNote}>Notifications work on mobile devices only</Text>
+                      )}
+                    </View>
+                  )}
                 </View>
 
                 <Text style={styles.settingsSectionLabel}>Appearance</Text>
@@ -732,7 +838,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 14,
     fontWeight: '600' as const,
     color: colors.textSecondary,
-    marginBottom: 10,
+    marginBottom: 0,
   },
   nameEditRow: {
     flexDirection: 'row' as const,
@@ -789,5 +895,83 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   themeOptionTextActive: {
     color: colors.primary,
+  },
+  reminderToggleRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+  },
+  reminderLabelRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+  },
+  timePickerSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  timePickerLabelRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    marginBottom: 12,
+  },
+  timePickerLabel: {
+    fontSize: 13,
+    fontWeight: '500' as const,
+    color: colors.textSecondary,
+  },
+  timePickerRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 6,
+  },
+  timeSpinner: {
+    alignItems: 'center' as const,
+    gap: 2,
+  },
+  spinnerBtn: {
+    width: 40,
+    height: 32,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    borderRadius: 8,
+    backgroundColor: colors.card,
+  },
+  timeDigit: {
+    fontSize: 28,
+    fontWeight: '700' as const,
+    color: colors.text,
+    minWidth: 50,
+    textAlign: 'center' as const,
+    fontVariant: ['tabular-nums' as const],
+  },
+  timeSeparator: {
+    fontSize: 28,
+    fontWeight: '700' as const,
+    color: colors.textMuted,
+    marginHorizontal: 2,
+  },
+  amPmBtn: {
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    marginLeft: 8,
+  },
+  amPmText: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: colors.primary,
+  },
+  webNote: {
+    fontSize: 12,
+    color: colors.textMuted,
+    textAlign: 'center' as const,
+    marginTop: 10,
+    fontStyle: 'italic' as const,
   },
 });
