@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import createContextHook from '@nkzw/create-context-hook';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthProvider';
+import { useRevenueCat } from './RevenueCatProvider';
 import {
   Challenge,
   DailyProgress,
@@ -97,6 +98,7 @@ const getDefaultState = (): AppState => ({
 
 export const [AppProvider, useApp] = createContextHook(() => {
   const { user } = useAuth();
+  const { isPremium: rcIsPremium } = useRevenueCat();
   const queryClient = useQueryClient();
   const [state, setState] = useState<AppState>(getDefaultState());
   const [newlyEarnedBadge, setNewlyEarnedBadge] = useState<BadgeDefinition | null>(null);
@@ -566,6 +568,14 @@ export const [AppProvider, useApp] = createContextHook(() => {
       );
     }
   }, [state, persist, userId]);
+
+  useEffect(() => {
+    console.log('[app] RevenueCat premium synced:', rcIsPremium);
+    setState(prev => ({
+      ...prev,
+      premium: { isPremium: rcIsPremium },
+    }));
+  }, [rcIsPremium]);
 
   const setPremium = useCallback((isPremium: boolean) => {
     console.log('[app] Premium status:', isPremium);

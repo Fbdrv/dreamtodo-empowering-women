@@ -19,14 +19,14 @@ import * as Haptics from 'expo-haptics';
 import { useColors, useTheme, ThemePreference } from '@/providers/ThemeProvider';
 import { useApp } from '@/providers/AppProvider';
 import { useAuth } from '@/providers/AuthProvider';
-import { useRevenueCat } from '@/providers/RevenueCatProvider';
+
 import { FOCUS_AREAS } from '@/mocks/data';
 import { ThemeColors } from '@/constants/colors';
 import PaywallModal from '@/components/PaywallModal';
 
 export default function ProfileScreen() {
-  const { profile, badges, newlyEarnedBadge, clearNewlyEarnedBadge, updateProfileName, notificationSettings, updateNotificationSettings, gentleMode, setGentleMode, setPremium } = useApp();
-  const { isPremium } = useRevenueCat();
+  const { profile, badges, newlyEarnedBadge, clearNewlyEarnedBadge, updateProfileName, notificationSettings, updateNotificationSettings, gentleMode, setGentleMode, setPremium, premium } = useApp();
+  const isPremium = premium.isPremium;
   const { user, logout } = useAuth();
   const colors = useColors();
   const { themePreference, setTheme } = useTheme();

@@ -91,11 +91,11 @@ export default function RootLayout() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <ThemeProvider>
           <AuthProvider>
-            <AppProvider>
-              <RevenueCatProvider>
+            <RevenueCatProvider>
+              <AppProvider>
                 <RootLayoutNav />
-              </RevenueCatProvider>
-            </AppProvider>
+              </AppProvider>
+            </RevenueCatProvider>
           </AuthProvider>
         </ThemeProvider>
       </GestureHandlerRootView>
