@@ -13,13 +13,14 @@ import { useAuth } from './AuthProvider';
 const ENTITLEMENT_ID = 'pro';
 
 function getRCApiKey(): string | undefined {
-  if (__DEV__ || Platform.OS === 'web') {
-    return process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY;
+  if (Platform.OS === 'web') {
+    console.log('[rc] Web platform detected, RevenueCat not supported');
+    return undefined;
   }
   return Platform.select({
     ios: process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY,
     android: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY,
-    default: process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY,
+    default: undefined,
   });
 }
 
