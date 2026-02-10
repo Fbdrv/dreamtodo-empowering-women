@@ -962,6 +962,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: 8,
+    flex: 1,
+    marginRight: 12,
   },
   timePickerSection: {
     marginTop: 16,

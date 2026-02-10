@@ -17,11 +17,16 @@ function getRCApiKey(): string | undefined {
     console.log('[rc] Web platform detected, RevenueCat not supported');
     return undefined;
   }
-  return Platform.select({
+  const key = Platform.select({
     ios: process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY,
     android: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY,
     default: undefined,
   });
+  if (!key || key.trim().length === 0 || key === 'undefined') {
+    console.log('[rc] API key is empty or invalid, skipping');
+    return undefined;
+  }
+  return key;
 }
 
 let rcConfigured = false;
@@ -45,7 +50,11 @@ function configureRC() {
   }
 }
 
-configureRC();
+try {
+  configureRC();
+} catch (e) {
+  console.log('[rc] Top-level configureRC error caught:', e);
+}
 
 export const [RevenueCatProvider, useRevenueCat] = createContextHook(() => {
   const { user } = useAuth();
