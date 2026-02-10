@@ -1,13 +1,15 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, Pressable } from 'react-native';
-import { X, Crown, Heart, Shield, Sparkles } from 'lucide-react-native';
+import React, { useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, Pressable, ActivityIndicator, Alert } from 'react-native';
+import { X, Crown, Heart, Shield, Sparkles, RotateCcw } from 'lucide-react-native';
 import { useColors } from '@/providers/ThemeProvider';
+import { useRevenueCat } from '@/providers/RevenueCatProvider';
 import { ThemeColors } from '@/constants/colors';
+import type { PurchasesPackage } from 'react-native-purchases';
 
 interface PaywallModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubscribe: () => void;
+  onPurchaseSuccess: () => void;
 }
 
 const BENEFITS = [
@@ -16,8 +18,17 @@ const BENEFITS = [
   { icon: 'sparkles', label: 'Supportive wellness features' },
 ];
 
-export default function PaywallModal({ visible, onClose, onSubscribe }: PaywallModalProps) {
+export default function PaywallModal({ visible, onClose, onPurchaseSuccess }: PaywallModalProps) {
   const colors = useColors();
+  const {
+    packages,
+    isLoadingOfferings,
+    isPurchasing,
+    isRestoring,
+    isConfigured,
+    purchase,
+    restore,
+  } = useRevenueCat();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const renderIcon = (name: string) => {
@@ -31,11 +42,50 @@ export default function PaywallModal({ visible, onClose, onSubscribe }: PaywallM
     }
   };
 
+  const monthlyPackage: PurchasesPackage | undefined = packages.find(
+    (p) => p.packageType === 'MONTHLY' || p.identifier === '$rc_monthly'
+  );
+
+  const priceString = monthlyPackage?.product?.priceString ?? '$4.99';
+
+  const handlePurchase = useCallback(async () => {
+    if (!monthlyPackage) {
+      Alert.alert('Unavailable', 'No subscription package available right now. Please try again later.');
+      return;
+    }
+    try {
+      await purchase(monthlyPackage);
+      onPurchaseSuccess();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Unknown error';
+      if (!msg.includes('cancelled') && !msg.includes('PURCHASE_CANCELLED')) {
+        Alert.alert('Purchase Failed', msg);
+      }
+    }
+  }, [monthlyPackage, purchase, onPurchaseSuccess]);
+
+  const handleRestore = useCallback(async () => {
+    try {
+      const info = await restore();
+      if (info?.entitlements?.active?.['pro']) {
+        onPurchaseSuccess();
+        Alert.alert('Restored', 'Your premium access has been restored!');
+      } else {
+        Alert.alert('No Purchases Found', 'We couldn\'t find any previous purchases to restore.');
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Unknown error';
+      Alert.alert('Restore Failed', msg);
+    }
+  }, [restore, onPurchaseSuccess]);
+
+  const isLoading = isPurchasing || isRestoring;
+
   return (
     <Modal visible={visible} transparent animationType="fade">
       <Pressable style={styles.overlay} onPress={onClose}>
         <Pressable style={styles.content} onPress={() => {}}>
-          <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
+          <TouchableOpacity style={styles.closeBtn} onPress={onClose} disabled={isLoading}>
             <X size={20} color={colors.textMuted} />
           </TouchableOpacity>
 
@@ -59,13 +109,43 @@ export default function PaywallModal({ visible, onClose, onSubscribe }: PaywallM
             ))}
           </View>
 
-          <View style={styles.priceCard}>
-            <Text style={styles.priceAmount}>$4.99</Text>
-            <Text style={styles.pricePeriod}>/month</Text>
-          </View>
+          {isLoadingOfferings ? (
+            <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: 20 }} />
+          ) : (
+            <View style={styles.priceCard}>
+              <Text style={styles.priceAmount}>{priceString}</Text>
+              <Text style={styles.pricePeriod}>/month</Text>
+            </View>
+          )}
 
-          <TouchableOpacity style={styles.subscribeBtn} onPress={onSubscribe} activeOpacity={0.8}>
-            <Text style={styles.subscribeBtnText}>Start Free Trial</Text>
+          <TouchableOpacity
+            style={[styles.subscribeBtn, isLoading && styles.subscribeBtnDisabled]}
+            onPress={handlePurchase}
+            activeOpacity={0.8}
+            disabled={isLoading || isLoadingOfferings}
+          >
+            {isPurchasing ? (
+              <ActivityIndicator size="small" color={colors.white} />
+            ) : (
+              <Text style={styles.subscribeBtnText}>
+                {isConfigured ? 'Subscribe Now' : 'Start Free Trial'}
+              </Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.restoreBtn}
+            onPress={handleRestore}
+            disabled={isLoading}
+          >
+            {isRestoring ? (
+              <ActivityIndicator size="small" color={colors.textMuted} />
+            ) : (
+              <View style={styles.restoreRow}>
+                <RotateCcw size={14} color={colors.textMuted} />
+                <Text style={styles.restoreText}>Restore Purchases</Text>
+              </View>
+            )}
           </TouchableOpacity>
 
           <Text style={styles.disclaimer}>
@@ -172,10 +252,27 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center' as const,
     marginBottom: 12,
   },
+  subscribeBtnDisabled: {
+    opacity: 0.6,
+  },
   subscribeBtnText: {
     fontSize: 17,
     fontWeight: '700' as const,
     color: colors.white,
+  },
+  restoreBtn: {
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  restoreRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+  },
+  restoreText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: colors.textMuted,
   },
   disclaimer: {
     fontSize: 12,

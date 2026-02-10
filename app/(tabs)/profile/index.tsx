@@ -19,12 +19,14 @@ import * as Haptics from 'expo-haptics';
 import { useColors, useTheme, ThemePreference } from '@/providers/ThemeProvider';
 import { useApp } from '@/providers/AppProvider';
 import { useAuth } from '@/providers/AuthProvider';
+import { useRevenueCat } from '@/providers/RevenueCatProvider';
 import { FOCUS_AREAS } from '@/mocks/data';
 import { ThemeColors } from '@/constants/colors';
 import PaywallModal from '@/components/PaywallModal';
 
 export default function ProfileScreen() {
-  const { profile, badges, newlyEarnedBadge, clearNewlyEarnedBadge, updateProfileName, notificationSettings, updateNotificationSettings, gentleMode, premium, setGentleMode, setPremium } = useApp();
+  const { profile, badges, newlyEarnedBadge, clearNewlyEarnedBadge, updateProfileName, notificationSettings, updateNotificationSettings, gentleMode, setGentleMode, setPremium } = useApp();
+  const { isPremium } = useRevenueCat();
   const { user, logout } = useAuth();
   const colors = useColors();
   const { themePreference, setTheme } = useTheme();
@@ -103,15 +105,15 @@ export default function ProfileScreen() {
   }, [localMinute, notificationSettings.dailyReminderEnabled, updateNotificationSettings]);
 
   const handleToggleGentleMode = useCallback((value: boolean) => {
-    if (value && !premium.isPremium) {
+    if (value && !isPremium) {
       setShowPaywall(true);
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setGentleMode(value);
-  }, [premium.isPremium, setGentleMode]);
+  }, [isPremium, setGentleMode]);
 
-  const handleSubscribe = useCallback(() => {
+  const handlePurchaseSuccess = useCallback(() => {
     setPremium(true);
     setShowPaywall(false);
     setGentleMode(true);
@@ -345,7 +347,7 @@ export default function ProfileScreen() {
                       </View>
                     </View>
                     <View style={styles.gentleToggleRow}>
-                      {!premium.isPremium && (
+                      {!isPremium && (
                         <View style={styles.premiumBadge}>
                           <Crown size={11} color={colors.accent} />
                           <Text style={styles.premiumBadgeText}>PRO</Text>
@@ -480,7 +482,7 @@ export default function ProfileScreen() {
       <PaywallModal
         visible={showPaywall}
         onClose={() => setShowPaywall(false)}
-        onSubscribe={handleSubscribe}
+        onPurchaseSuccess={handlePurchaseSuccess}
       />
     </View>
   );

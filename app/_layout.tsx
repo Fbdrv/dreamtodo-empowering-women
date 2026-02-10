@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider, useAuth } from "@/providers/AuthProvider";
 import { AppProvider, useApp } from "@/providers/AppProvider";
 import { ThemeProvider, useColors } from "@/providers/ThemeProvider";
+import { RevenueCatProvider } from "@/providers/RevenueCatProvider";
 import { configureNotificationHandler } from "@/lib/notifications";
 
 SplashScreen.preventAutoHideAsync();
@@ -91,7 +92,9 @@ export default function RootLayout() {
         <ThemeProvider>
           <AuthProvider>
             <AppProvider>
-              <RootLayoutNav />
+              <RevenueCatProvider>
+                <RootLayoutNav />
+              </RevenueCatProvider>
             </AppProvider>
           </AuthProvider>
         </ThemeProvider>
