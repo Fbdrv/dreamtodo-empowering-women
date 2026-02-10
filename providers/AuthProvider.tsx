@@ -1,9 +1,8 @@
 import createContextHook from '@nkzw/create-context-hook';
 import { useCallback, useEffect, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import * as SecureStore from 'expo-secure-store';
-
-const USER_KEY = 'local_user';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
+import type { Session, User } from '@supabase/supabase-js';
 
 interface AuthUser {
   id: string;
@@ -11,68 +10,69 @@ interface AuthUser {
   username: string;
 }
 
-interface StoredAuth {
-  user: AuthUser;
-  password: string;
+function mapSupabaseUser(user: User): AuthUser {
+  return {
+    id: user.id,
+    email: user.email ?? '',
+    username: user.user_metadata?.username ?? user.email?.split('@')[0] ?? '',
+  };
 }
 
 export const [AuthProvider, useAuth] = createContextHook(() => {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isReady, setIsReady] = useState<boolean>(false);
   const queryClient = useQueryClient();
 
-  const userQuery = useQuery({
-    queryKey: ['localUser'],
-    queryFn: async () => {
-      try {
-        const stored = await SecureStore.getItemAsync(USER_KEY);
-        console.log('[auth] Loaded stored user:', stored ? 'exists' : 'none');
-        if (stored) {
-          const parsed = JSON.parse(stored) as StoredAuth;
-          return parsed.user;
-        }
-        return null;
-      } catch (e) {
-        console.log('[auth] Failed to load user:', e);
-        return null;
-      }
-    },
-    staleTime: Infinity,
-  });
-
   useEffect(() => {
-    if (userQuery.data !== undefined) {
-      setUser(userQuery.data);
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      console.log('[auth] Initial session:', currentSession ? 'exists' : 'none');
+      setSession(currentSession);
+      if (currentSession?.user) {
+        setUser(mapSupabaseUser(currentSession.user));
+      }
       setIsReady(true);
-    } else if (!userQuery.isLoading) {
-      setIsReady(true);
-    }
-  }, [userQuery.data, userQuery.isLoading]);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      console.log('[auth] Auth state changed:', _event);
+      setSession(newSession);
+      if (newSession?.user) {
+        setUser(mapSupabaseUser(newSession.user));
+      } else {
+        setUser(null);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const registerMutation = useMutation({
     mutationFn: async ({ email, username, password }: { email: string; username: string; password: string }) => {
-      const existing = await SecureStore.getItemAsync(USER_KEY);
-      if (existing) {
-        const parsed = JSON.parse(existing) as StoredAuth;
-        if (parsed.user.email === email) {
-          throw new Error('An account with this email already exists');
-        }
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { username },
+        },
+      });
+
+      if (error) {
+        console.log('[auth] Register error from Supabase:', error.message);
+        throw new Error(error.message);
       }
 
-      const newUser: AuthUser = {
-        id: `user_${Date.now()}`,
-        email,
-        username,
-      };
+      if (!data.user) {
+        throw new Error('Registration failed. Please try again.');
+      }
 
-      const authData: StoredAuth = { user: newUser, password };
-      await SecureStore.setItemAsync(USER_KEY, JSON.stringify(authData));
-      console.log('[auth] Register success:', newUser.email);
-      return newUser;
+      console.log('[auth] Register success:', data.user.email);
+      return mapSupabaseUser(data.user);
     },
     onSuccess: (newUser) => {
       setUser(newUser);
-      queryClient.invalidateQueries({ queryKey: ['localUser'] });
     },
     onError: (error) => {
       console.log('[auth] Register error:', error.message);
@@ -81,25 +81,25 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
   const loginMutation = useMutation({
     mutationFn: async ({ email, password }: { email: string; password: string }) => {
-      const stored = await SecureStore.getItemAsync(USER_KEY);
-      if (!stored) {
-        throw new Error('No account found. Please create an account first.');
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        console.log('[auth] Login error from Supabase:', error.message);
+        throw new Error(error.message);
       }
 
-      const parsed = JSON.parse(stored) as StoredAuth;
-      if (parsed.user.email !== email) {
-        throw new Error('No account found with this email');
-      }
-      if (parsed.password !== password) {
-        throw new Error('Incorrect password');
+      if (!data.user) {
+        throw new Error('Login failed. Please try again.');
       }
 
-      console.log('[auth] Login success:', parsed.user.email);
-      return parsed.user;
+      console.log('[auth] Login success:', data.user.email);
+      return mapSupabaseUser(data.user);
     },
     onSuccess: (loggedInUser) => {
       setUser(loggedInUser);
-      queryClient.invalidateQueries({ queryKey: ['localUser'] });
     },
     onError: (error) => {
       console.log('[auth] Login error:', error.message);
@@ -108,11 +108,16 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      await SecureStore.deleteItemAsync(USER_KEY);
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.log('[auth] Logout error from Supabase:', error.message);
+        throw new Error(error.message);
+      }
       console.log('[auth] Logout success');
     },
     onSettled: () => {
       setUser(null);
+      setSession(null);
       queryClient.clear();
     },
   });
@@ -141,6 +146,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
   return {
     user,
+    session,
     isAuthenticated: !!user,
     isReady,
     isLoggingIn: loginMutation.isPending,
