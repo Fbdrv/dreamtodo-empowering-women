@@ -105,13 +105,9 @@ export default function ProfileScreen() {
   }, [localMinute, notificationSettings.dailyReminderEnabled, updateNotificationSettings]);
 
   const handleToggleGentleMode = useCallback((value: boolean) => {
-    if (value && !isPremium) {
-      setShowPaywall(true);
-      return;
-    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setGentleMode(value);
-  }, [isPremium, setGentleMode]);
+  }, [setGentleMode]);
 
   const handlePurchaseSuccess = useCallback(() => {
     setPremium(true);
