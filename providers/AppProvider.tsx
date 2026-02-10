@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import createContextHook from '@nkzw/create-context-hook';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthProvider';
@@ -24,8 +24,21 @@ import {
   scheduleDailyReminder,
   cancelDailyReminder,
 } from '@/lib/notifications';
+import {
+  loadFullUserData,
+  upsertProfile,
+  upsertGoal,
+  deleteGoalDB,
+  upsertDream,
+  upsertHabit,
+  upsertChallenge,
+  deleteChallengeDB,
+  deleteChallengesByGoalDB,
+  insertEarnedBadge,
+  upsertGentleMode,
+} from '@/lib/database';
 
-const STORAGE_KEY_PREFIX = 'dreaming_to_doing_app_';
+const NOTIF_SETTINGS_KEY = 'dreaming_notif_settings_';
 
 interface AppState {
   profile: UserProfile;
@@ -88,41 +101,60 @@ export const [AppProvider, useApp] = createContextHook(() => {
   const [state, setState] = useState<AppState>(getDefaultState());
   const [newlyEarnedBadge, setNewlyEarnedBadge] = useState<BadgeDefinition | null>(null);
 
-  const storageKey = user ? `${STORAGE_KEY_PREFIX}${user.id}` : null;
+  const userId = user?.id ?? null;
 
   const stateQuery = useQuery({
-    queryKey: ['appState', storageKey],
+    queryKey: ['appState', userId],
     queryFn: async () => {
-      if (!storageKey) return getDefaultState();
+      if (!userId) return getDefaultState();
+
       try {
-        const stored = await AsyncStorage.getItem(storageKey);
-        if (stored) {
-          const parsed = JSON.parse(stored) as Partial<AppState>;
-          console.log('[app] Loaded local state for user:', user?.id);
-          const defaultState = getDefaultState();
+        console.log('[app] Loading data from Supabase for user:', userId);
+        const dbData = await loadFullUserData(userId);
 
-          const migratedChallenges = (parsed.challenges ?? []).filter(
-            (c: any) => c.goalId && typeof c.goalId === 'string' && !c.type
-          ) as Challenge[];
-          if (migratedChallenges.length !== (parsed.challenges ?? []).length) {
-            console.log('[app] Migrated out', (parsed.challenges ?? []).length - migratedChallenges.length, 'old-format challenges');
-          }
-
-          return {
-            ...defaultState,
-            ...parsed,
-            challenges: migratedChallenges,
-            profile: { ...defaultState.profile, ...parsed.profile },
-            gentleMode: { ...defaultGentleMode, ...(parsed as any).gentleMode },
-            premium: { ...defaultPremium, ...(parsed as any).premium },
-          };
+        const notifKey = `${NOTIF_SETTINGS_KEY}${userId}`;
+        let notifSettings = DEFAULT_NOTIFICATION_SETTINGS;
+        try {
+          const stored = await AsyncStorage.getItem(notifKey);
+          if (stored) notifSettings = JSON.parse(stored);
+        } catch (e) {
+          console.log('[app] Failed to load notification settings:', e);
         }
+
+        const today = new Date().toISOString().split('T')[0];
+        const habits = dbData.habits ?? [];
+        const todayCompleted = habits.filter(h => h.completedDates.includes(today)).length;
+
+        const profile = dbData.profile ?? defaultProfile;
+        const gentleMode = dbData.gentleMode ?? defaultGentleMode;
+
+        const result: AppState = {
+          profile,
+          goals: dbData.goals ?? [],
+          dreams: dbData.dreams ?? [],
+          habits,
+          challenges: dbData.challenges ?? [],
+          earnedBadges: dbData.earnedBadges ?? [],
+          dailyProgress: {
+            date: today,
+            habitsCompleted: todayCompleted,
+            habitsTotal: habits.filter(h => h.isActive).length,
+            challengeCompleted: false,
+            points: 0,
+          },
+          notificationSettings: notifSettings,
+          gentleMode,
+          premium: defaultPremium,
+        };
+
+        console.log('[app] Supabase data loaded successfully');
+        return result;
       } catch (e) {
-        console.log('[app] Failed to load local state:', e);
+        console.log('[app] Failed to load from Supabase:', e);
+        return getDefaultState();
       }
-      return getDefaultState();
     },
-    enabled: !!user,
+    enabled: !!userId,
   });
 
   useEffect(() => {
@@ -131,26 +163,6 @@ export const [AppProvider, useApp] = createContextHook(() => {
     }
   }, [stateQuery.data]);
 
-  const saveMutation = useMutation({
-    mutationFn: async (newState: AppState) => {
-      if (!storageKey) return newState;
-      await AsyncStorage.setItem(storageKey, JSON.stringify({
-        profile: newState.profile,
-        goals: newState.goals,
-        dreams: newState.dreams,
-        habits: newState.habits,
-        challenges: newState.challenges,
-        earnedBadges: newState.earnedBadges,
-        dailyProgress: newState.dailyProgress,
-        notificationSettings: newState.notificationSettings,
-        gentleMode: newState.gentleMode,
-        premium: newState.premium,
-      }));
-      console.log('[app] Saved state locally for user:', user?.id);
-      return newState;
-    },
-  });
-
   useEffect(() => {
     if (!user) {
       setState(getDefaultState());
@@ -158,18 +170,25 @@ export const [AppProvider, useApp] = createContextHook(() => {
     }
   }, [user, queryClient]);
 
-  const { mutate: saveLocal } = saveMutation;
+  const saveNotifSettings = useCallback(async (settings: NotificationSettings) => {
+    if (!userId) return;
+    try {
+      await AsyncStorage.setItem(`${NOTIF_SETTINGS_KEY}${userId}`, JSON.stringify(settings));
+    } catch (e) {
+      console.log('[app] Failed to save notification settings:', e);
+    }
+  }, [userId]);
 
   const checkAndAwardBadges = useCallback((currentState: AppState): EarnedBadge[] => {
     const newBadges: EarnedBadge[] = [...currentState.earnedBadges];
     const earnedIds = new Set(newBadges.map(b => b.badgeId));
-    
+
     for (const badge of BADGE_DEFINITIONS) {
       if (earnedIds.has(badge.id)) continue;
-      
+
       let earned = false;
       const { condition } = badge;
-      
+
       switch (condition.type) {
         case 'first_challenge':
           earned = currentState.profile.challengesCompleted >= 1;
@@ -178,7 +197,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
           earned = currentState.profile.challengesCompleted >= condition.count;
           break;
         case 'streak':
-          earned = currentState.profile.currentStreak >= condition.days || 
+          earned = currentState.profile.currentStreak >= condition.days ||
                    currentState.profile.bestStreak >= condition.days;
           break;
         case 'goals_created':
@@ -188,15 +207,21 @@ export const [AppProvider, useApp] = createContextHook(() => {
           earned = currentState.profile.habitsCompleted >= condition.count;
           break;
       }
-      
+
       if (earned) {
-        newBadges.push({ badgeId: badge.id, earnedAt: new Date().toISOString() });
+        const newBadge: EarnedBadge = { badgeId: badge.id, earnedAt: new Date().toISOString() };
+        newBadges.push(newBadge);
         setNewlyEarnedBadge(badge);
+        if (userId) {
+          insertEarnedBadge(userId, newBadge).catch(e =>
+            console.log('[app] Failed to persist badge:', e)
+          );
+        }
       }
     }
-    
+
     return newBadges;
-  }, []);
+  }, [userId]);
 
   const persist = useCallback((newState: AppState, skipBadgeCheck = false) => {
     let finalState = newState;
@@ -205,22 +230,25 @@ export const [AppProvider, useApp] = createContextHook(() => {
       finalState = { ...newState, earnedBadges: updatedBadges };
     }
     setState(finalState);
-    saveLocal(finalState);
-  }, [saveLocal, checkAndAwardBadges]);
+  }, [checkAndAwardBadges]);
 
   const completeOnboarding = useCallback((name: string, focusAreas: FocusArea[], dreamGoals: string[]) => {
-    const updated = {
-      ...state,
-      profile: {
-        ...state.profile,
-        name,
-        focusAreas,
-        dreamGoals,
-        hasCompletedOnboarding: true,
-      },
+    const updatedProfile: UserProfile = {
+      ...state.profile,
+      name,
+      focusAreas,
+      dreamGoals,
+      hasCompletedOnboarding: true,
     };
+    const updated = { ...state, profile: updatedProfile };
     persist(updated);
-  }, [state, persist]);
+
+    if (userId) {
+      upsertProfile(userId, updatedProfile).catch(e =>
+        console.log('[app] Failed to persist profile on onboarding:', e)
+      );
+    }
+  }, [state, persist, userId]);
 
   const addGoal = useCallback((title: string, description: string, color: string, emoji: string) => {
     if (state.goals.length >= 4) {
@@ -235,22 +263,33 @@ export const [AppProvider, useApp] = createContextHook(() => {
       emoji,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    const updated = {
-      ...state,
-      goals: [...state.goals, newGoal],
-    };
+    const updated = { ...state, goals: [...state.goals, newGoal] };
     persist(updated);
-  }, [state, persist]);
+
+    if (userId) {
+      upsertGoal(userId, newGoal).catch(e =>
+        console.log('[app] Failed to persist goal:', e)
+      );
+    }
+  }, [state, persist, userId]);
 
   const updateGoal = useCallback((goalId: string, title: string, description: string, color: string, emoji: string) => {
+    const updatedGoal = state.goals.find(g => g.id === goalId);
+    if (!updatedGoal) return;
+
+    const newGoal: Goal = { ...updatedGoal, title, description: description || undefined, color, emoji };
     const updated = {
       ...state,
-      goals: state.goals.map(g => 
-        g.id === goalId ? { ...g, title, description: description || undefined, color, emoji } : g
-      ),
+      goals: state.goals.map(g => g.id === goalId ? newGoal : g),
     };
     persist(updated, true);
-  }, [state, persist]);
+
+    if (userId) {
+      upsertGoal(userId, newGoal).catch(e =>
+        console.log('[app] Failed to persist goal update:', e)
+      );
+    }
+  }, [state, persist, userId]);
 
   const deleteGoal = useCallback((goalId: string) => {
     const updated = {
@@ -259,7 +298,16 @@ export const [AppProvider, useApp] = createContextHook(() => {
       challenges: state.challenges.filter(c => c.goalId !== goalId),
     };
     persist(updated, true);
-  }, [state, persist]);
+
+    if (userId) {
+      deleteChallengesByGoalDB(goalId).catch(e =>
+        console.log('[app] Failed to delete challenges by goal:', e)
+      );
+      deleteGoalDB(goalId).catch(e =>
+        console.log('[app] Failed to delete goal:', e)
+      );
+    }
+  }, [state, persist, userId]);
 
   const addChallenge = useCallback((title: string, description: string, goalId: string, duration: string) => {
     const newChallenge: Challenge = {
@@ -271,22 +319,33 @@ export const [AppProvider, useApp] = createContextHook(() => {
       isCompleted: false,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    const updated = {
-      ...state,
-      challenges: [...state.challenges, newChallenge],
-    };
+    const updated = { ...state, challenges: [...state.challenges, newChallenge] };
     persist(updated, true);
-  }, [state, persist]);
+
+    if (userId) {
+      upsertChallenge(userId, newChallenge).catch(e =>
+        console.log('[app] Failed to persist challenge:', e)
+      );
+    }
+  }, [state, persist, userId]);
 
   const updateChallenge = useCallback((challengeId: string, title: string, description: string, goalId: string, duration: string) => {
+    const existing = state.challenges.find(c => c.id === challengeId);
+    if (!existing) return;
+
+    const updatedChallenge: Challenge = { ...existing, title, description, goalId, duration };
     const updated = {
       ...state,
-      challenges: state.challenges.map(c =>
-        c.id === challengeId ? { ...c, title, description, goalId, duration } : c
-      ),
+      challenges: state.challenges.map(c => c.id === challengeId ? updatedChallenge : c),
     };
     persist(updated, true);
-  }, [state, persist]);
+
+    if (userId) {
+      upsertChallenge(userId, updatedChallenge).catch(e =>
+        console.log('[app] Failed to persist challenge update:', e)
+      );
+    }
+  }, [state, persist, userId]);
 
   const deleteChallenge = useCallback((challengeId: string) => {
     const updated = {
@@ -294,42 +353,66 @@ export const [AppProvider, useApp] = createContextHook(() => {
       challenges: state.challenges.filter(c => c.id !== challengeId),
     };
     persist(updated, true);
-  }, [state, persist]);
+
+    if (userId) {
+      deleteChallengeDB(challengeId).catch(e =>
+        console.log('[app] Failed to delete challenge:', e)
+      );
+    }
+  }, [state, persist, userId]);
 
   const completeChallenge = useCallback((challengeId: string) => {
-    const updated = {
+    const existing = state.challenges.find(c => c.id === challengeId);
+    if (!existing) return;
+
+    const completedChallenge: Challenge = {
+      ...existing,
+      isCompleted: true,
+      completedAt: new Date().toISOString(),
+    };
+
+    const updatedProfile: UserProfile = {
+      ...state.profile,
+      challengesCompleted: state.profile.challengesCompleted + 1,
+      totalPoints: state.profile.totalPoints + 25,
+    };
+
+    const updated: AppState = {
       ...state,
-      challenges: state.challenges.map(c =>
-        c.id === challengeId ? { ...c, isCompleted: true, completedAt: new Date().toISOString() } : c
-      ),
+      challenges: state.challenges.map(c => c.id === challengeId ? completedChallenge : c),
       dailyProgress: {
         ...state.dailyProgress,
         challengeCompleted: true,
         points: state.dailyProgress.points + 25,
       },
-      profile: {
-        ...state.profile,
-        challengesCompleted: state.profile.challengesCompleted + 1,
-        totalPoints: state.profile.totalPoints + 25,
-      },
+      profile: updatedProfile,
     };
     persist(updated);
-  }, [state, persist]);
+
+    if (userId) {
+      upsertChallenge(userId, completedChallenge).catch(e =>
+        console.log('[app] Failed to persist challenge completion:', e)
+      );
+      upsertProfile(userId, updatedProfile).catch(e =>
+        console.log('[app] Failed to persist profile after challenge:', e)
+      );
+    }
+  }, [state, persist, userId]);
 
   const toggleHabitComplete = useCallback((habitId: string) => {
     const today = new Date().toISOString().split('T')[0];
     const habit = state.habits.find(h => h.id === habitId);
     if (!habit) return;
-    
+
     const isCompleted = habit.completedDates.includes(today);
     const restDays = state.gentleMode.restDays;
-    
+
     const computeStreak = (dates: string[]): number => {
       if (dates.length === 0) return 0;
       const sorted = [...dates].sort().reverse();
       if (sorted[0] !== today) return 0;
       let streak = 1;
-      let current = new Date(today);
+      const current = new Date(today);
       for (let i = 1; i < 365; i++) {
         current.setDate(current.getDate() - 1);
         const prev = current.toISOString().split('T')[0];
@@ -343,42 +426,56 @@ export const [AppProvider, useApp] = createContextHook(() => {
       }
       return streak;
     };
-    
+
+    let updatedHabit: Habit | null = null;
+
     const newHabits = state.habits.map(h => {
       if (h.id !== habitId) return h;
       const newDates = isCompleted
         ? h.completedDates.filter(d => d !== today)
         : [...h.completedDates, today];
       const newStreak = computeStreak(newDates);
-      return {
+      updatedHabit = {
         ...h,
         completedDates: newDates,
         streak: newStreak,
         bestStreak: Math.max(h.bestStreak, newStreak),
       };
+      return updatedHabit;
     });
 
     const dailyHabitsCompleted = newHabits.filter(h => h.completedDates.includes(today)).length;
 
-    const updated = {
+    const updatedProfile: UserProfile = {
+      ...state.profile,
+      habitsCompleted: isCompleted
+        ? Math.max(0, state.profile.habitsCompleted - 1)
+        : state.profile.habitsCompleted + 1,
+      totalPoints: isCompleted
+        ? Math.max(0, state.profile.totalPoints - 10)
+        : state.profile.totalPoints + 10,
+    };
+
+    const updated: AppState = {
       ...state,
       habits: newHabits,
       dailyProgress: {
         ...state.dailyProgress,
         habitsCompleted: dailyHabitsCompleted,
       },
-      profile: {
-        ...state.profile,
-        habitsCompleted: isCompleted
-          ? Math.max(0, state.profile.habitsCompleted - 1)
-          : state.profile.habitsCompleted + 1,
-        totalPoints: isCompleted
-          ? Math.max(0, state.profile.totalPoints - 10)
-          : state.profile.totalPoints + 10,
-      },
+      profile: updatedProfile,
     };
     persist(updated);
-  }, [state, persist]);
+
+    if (userId && updatedHabit) {
+      upsertHabit(userId, updatedHabit).catch(e =>
+        console.log('[app] Failed to persist habit toggle:', e)
+      );
+      upsertProfile(userId, updatedProfile).catch(e =>
+        console.log('[app] Failed to persist profile after habit:', e)
+      );
+    }
+  }, [state, persist, userId]);
 
   const addDream = useCallback((title: string, description: string, focusArea: FocusArea) => {
     const newDream: Dream = {
@@ -390,12 +487,15 @@ export const [AppProvider, useApp] = createContextHook(() => {
       habits: [],
       progress: 0,
     };
-    const updated = {
-      ...state,
-      dreams: [...state.dreams, newDream],
-    };
+    const updated = { ...state, dreams: [...state.dreams, newDream] };
     persist(updated, true);
-  }, [state, persist]);
+
+    if (userId) {
+      upsertDream(userId, newDream).catch(e =>
+        console.log('[app] Failed to persist dream:', e)
+      );
+    }
+  }, [state, persist, userId]);
 
   const addHabit = useCallback((title: string, frequency: 'daily' | 'weekly', dreamId?: string) => {
     const newHabit: Habit = {
@@ -409,20 +509,27 @@ export const [AppProvider, useApp] = createContextHook(() => {
       createdAt: new Date().toISOString().split('T')[0],
       isActive: true,
     };
-    const updated = {
-      ...state,
-      habits: [...state.habits, newHabit],
-    };
+    const updated = { ...state, habits: [...state.habits, newHabit] };
     persist(updated, true);
-  }, [state, persist]);
+
+    if (userId) {
+      upsertHabit(userId, newHabit).catch(e =>
+        console.log('[app] Failed to persist habit:', e)
+      );
+    }
+  }, [state, persist, userId]);
 
   const updateProfileName = useCallback((name: string) => {
-    const updated = {
-      ...state,
-      profile: { ...state.profile, name },
-    };
+    const updatedProfile = { ...state.profile, name };
+    const updated = { ...state, profile: updatedProfile };
     persist(updated, true);
-  }, [state, persist]);
+
+    if (userId) {
+      upsertProfile(userId, updatedProfile).catch(e =>
+        console.log('[app] Failed to persist profile name:', e)
+      );
+    }
+  }, [state, persist, userId]);
 
   const setGentleMode = useCallback((enabled: boolean) => {
     const newGentleMode: GentleModeSettings = {
@@ -434,7 +541,13 @@ export const [AppProvider, useApp] = createContextHook(() => {
     console.log('[app] Gentle mode:', enabled ? 'enabled' : 'disabled');
     const updated = { ...state, gentleMode: newGentleMode };
     persist(updated, true);
-  }, [state, persist]);
+
+    if (userId) {
+      upsertGentleMode(userId, newGentleMode).catch(e =>
+        console.log('[app] Failed to persist gentle mode:', e)
+      );
+    }
+  }, [state, persist, userId]);
 
   const markRestDay = useCallback(() => {
     const today = new Date().toISOString().split('T')[0];
@@ -446,7 +559,13 @@ export const [AppProvider, useApp] = createContextHook(() => {
     console.log('[app] Marked rest day:', today);
     const updated = { ...state, gentleMode: newGentleMode };
     persist(updated, true);
-  }, [state, persist]);
+
+    if (userId) {
+      upsertGentleMode(userId, newGentleMode).catch(e =>
+        console.log('[app] Failed to persist rest day:', e)
+      );
+    }
+  }, [state, persist, userId]);
 
   const setPremium = useCallback((isPremium: boolean) => {
     console.log('[app] Premium status:', isPremium);
@@ -463,6 +582,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
     const newSettings = { ...state.notificationSettings, ...settings };
     const updated = { ...state, notificationSettings: newSettings };
     persist(updated, true);
+    saveNotifSettings(newSettings);
 
     if (newSettings.dailyReminderEnabled) {
       const granted = await requestNotificationPermissions();
@@ -470,16 +590,15 @@ export const [AppProvider, useApp] = createContextHook(() => {
         await scheduleDailyReminder(newSettings.reminderHour, newSettings.reminderMinute);
       } else {
         console.log('[app] Notification permission denied, disabling reminder');
-        const reverted = {
-          ...updated,
-          notificationSettings: { ...newSettings, dailyReminderEnabled: false },
-        };
+        const revertedSettings = { ...newSettings, dailyReminderEnabled: false };
+        const reverted = { ...updated, notificationSettings: revertedSettings };
         persist(reverted, true);
+        saveNotifSettings(revertedSettings);
       }
     } else {
       await cancelDailyReminder();
     }
-  }, [state, persist]);
+  }, [state, persist, saveNotifSettings]);
 
   const clearNewlyEarnedBadge = useCallback(() => {
     setNewlyEarnedBadge(null);

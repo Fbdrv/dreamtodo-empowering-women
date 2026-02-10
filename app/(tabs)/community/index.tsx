@@ -1,33 +1,126 @@
-import React, { useRef, useEffect, useState, useMemo } from 'react';
+import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Animated,
+  TextInput,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Heart, Users } from 'lucide-react-native';
+import { Heart, Users, Send, X } from 'lucide-react-native';
 import { useColors } from '@/providers/ThemeProvider';
-import { COMMUNITY_WINS } from '@/mocks/data';
+import { useAuth } from '@/providers/AuthProvider';
+import { useApp } from '@/providers/AppProvider';
+import { COMMUNITY_WINS, FOCUS_AREAS } from '@/mocks/data';
 import WinCard from '@/components/WinCard';
-import { CommunityWin } from '@/types';
+import { CommunityWin, FocusArea } from '@/types';
 import { ThemeColors } from '@/constants/colors';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  fetchCommunityWins,
+  insertCommunityWin,
+  cheerCommunityWin,
+  fetchUserCheers,
+} from '@/lib/database';
 
 export default function CommunityScreen() {
-  const [communityWins, setCommunityWins] = useState<CommunityWin[]>(COMMUNITY_WINS);
   const colors = useColors();
+  const { user } = useAuth();
+  const { profile } = useApp();
+  const queryClient = useQueryClient();
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [showCompose, setShowCompose] = useState<boolean>(false);
+  const [newMessage, setNewMessage] = useState<string>('');
+  const [selectedArea, setSelectedArea] = useState<FocusArea>('lifestyle');
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
   }, [fadeAnim]);
 
-  const cheerWin = (winId: string) => {
-    setCommunityWins(prev => 
-      prev.map(w => w.id === winId ? { ...w, cheers: w.cheers + 1, hasCheered: true } : w)
-    );
-  };
+  const winsQuery = useQuery({
+    queryKey: ['communityWins'],
+    queryFn: async () => {
+      const dbWins = await fetchCommunityWins();
+      if (dbWins.length > 0) return dbWins;
+      return COMMUNITY_WINS;
+    },
+    staleTime: 30000,
+  });
+
+  const cheersQuery = useQuery({
+    queryKey: ['userCheers', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return new Set<string>();
+      return fetchUserCheers(user.id);
+    },
+    enabled: !!user?.id,
+  });
+
+  const communityWins: CommunityWin[] = useMemo(() => {
+    const wins = winsQuery.data ?? COMMUNITY_WINS;
+    const cheeredSet = cheersQuery.data ?? new Set<string>();
+    return wins.map(w => ({ ...w, hasCheered: cheeredSet.has(w.id) }));
+  }, [winsQuery.data, cheersQuery.data]);
+
+  const cheerMutation = useMutation({
+    mutationFn: async (winId: string) => {
+      if (!user?.id) return;
+      await cheerCommunityWin(user.id, winId);
+    },
+    onMutate: async (winId: string) => {
+      await queryClient.cancelQueries({ queryKey: ['communityWins'] });
+      await queryClient.cancelQueries({ queryKey: ['userCheers', user?.id] });
+
+      const previousWins = queryClient.getQueryData<CommunityWin[]>(['communityWins']);
+      const previousCheers = queryClient.getQueryData<Set<string>>(['userCheers', user?.id]);
+
+      queryClient.setQueryData<CommunityWin[]>(['communityWins'], (old) =>
+        (old ?? []).map(w => w.id === winId ? { ...w, cheers: w.cheers + 1 } : w)
+      );
+      queryClient.setQueryData<Set<string>>(['userCheers', user?.id], (old) => {
+        const newSet = new Set(old);
+        newSet.add(winId);
+        return newSet;
+      });
+
+      return { previousWins, previousCheers };
+    },
+    onError: (_err, _winId, context) => {
+      if (context?.previousWins) {
+        queryClient.setQueryData(['communityWins'], context.previousWins);
+      }
+      if (context?.previousCheers) {
+        queryClient.setQueryData(['userCheers', user?.id], context.previousCheers);
+      }
+    },
+  });
+
+  const postMutation = useMutation({
+    mutationFn: async () => {
+      if (!user?.id || !newMessage.trim()) return;
+      await insertCommunityWin(user.id, profile.name || 'Anonymous', newMessage.trim(), selectedArea);
+    },
+    onSuccess: () => {
+      setNewMessage('');
+      setShowCompose(false);
+      queryClient.invalidateQueries({ queryKey: ['communityWins'] });
+    },
+    onError: () => {
+      Alert.alert('Error', 'Failed to post your win. Please try again.');
+    },
+  });
+
+  const { mutate: cheerMutate } = cheerMutation;
+  const cheerWin = useCallback((winId: string) => {
+    const cheeredSet = cheersQuery.data ?? new Set<string>();
+    if (cheeredSet.has(winId)) return;
+    cheerMutate(winId);
+  }, [cheersQuery.data, cheerMutate]);
 
   const totalCheers = communityWins.reduce((sum, w) => sum + w.cheers, 0);
 
@@ -36,16 +129,26 @@ export default function CommunityScreen() {
   return (
     <View style={styles.container}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={winsQuery.isRefetching}
+              onRefresh={() => {
+                queryClient.invalidateQueries({ queryKey: ['communityWins'] });
+                queryClient.invalidateQueries({ queryKey: ['userCheers', user?.id] });
+              }}
+              tintColor={colors.primary}
+            />
+          }
+        >
           <Animated.View style={{ opacity: fadeAnim }}>
             <View style={styles.header}>
               <View style={styles.titleRow}>
                 <Text style={styles.title}>Community</Text>
-                <View style={styles.comingSoonPill}>
-                  <Text style={styles.comingSoonText}>Coming soon</Text>
-                </View>
               </View>
-              <Text style={styles.subtitle}>Preview — full Community features ship after MVP</Text>
+              <Text style={styles.subtitle}>Celebrate wins together</Text>
             </View>
 
             <View style={styles.statsRow}>
@@ -61,26 +164,74 @@ export default function CommunityScreen() {
               </View>
             </View>
 
+            {showCompose ? (
+              <View style={styles.composeCard}>
+                <View style={styles.composeHeader}>
+                  <Text style={styles.composeTitle}>Share Your Win</Text>
+                  <TouchableOpacity onPress={() => setShowCompose(false)}>
+                    <X size={20} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
+                <TextInput
+                  style={styles.composeInput}
+                  placeholder="What did you accomplish today?"
+                  placeholderTextColor={colors.textMuted}
+                  value={newMessage}
+                  onChangeText={setNewMessage}
+                  multiline
+                  maxLength={280}
+                />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.areaSelector}>
+                  {FOCUS_AREAS.map(area => (
+                    <TouchableOpacity
+                      key={area.id}
+                      style={[styles.areaPill, selectedArea === area.id && styles.areaPillActive]}
+                      onPress={() => setSelectedArea(area.id)}
+                    >
+                      <Text style={styles.areaPillEmoji}>{area.emoji}</Text>
+                      <Text style={[styles.areaPillText, selectedArea === area.id && styles.areaPillTextActive]}>
+                        {area.label.split(' ')[0]}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                <TouchableOpacity
+                  style={[styles.postButton, (!newMessage.trim() || postMutation.isPending) && styles.postButtonDisabled]}
+                  onPress={() => postMutation.mutate()}
+                  disabled={!newMessage.trim() || postMutation.isPending}
+                >
+                  {postMutation.isPending ? (
+                    <ActivityIndicator size="small" color={colors.white} />
+                  ) : (
+                    <>
+                      <Send size={16} color={colors.white} />
+                      <Text style={styles.postButtonText}>Post Win</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.composeButton} onPress={() => setShowCompose(true)}>
+                <Text style={styles.composeButtonEmoji}>🌟</Text>
+                <Text style={styles.composeButtonText}>Share Your Win</Text>
+              </TouchableOpacity>
+            )}
+
             <View style={styles.feedHeader}>
               <Text style={styles.feedTitle}>Recent Wins</Text>
-              <View style={styles.liveBadge}>
-                <View style={styles.liveDot} />
-                <Text style={styles.liveText}>Live</Text>
-              </View>
+              {winsQuery.isLoading && <ActivityIndicator size="small" color={colors.primary} />}
+              {!winsQuery.isLoading && (
+                <View style={styles.liveBadge}>
+                  <View style={styles.liveDot} />
+                  <Text style={styles.liveText}>Live</Text>
+                </View>
+              )}
             </View>
 
             <View style={styles.winsList}>
               {communityWins.map(win => (
                 <WinCard key={win.id} win={win} onCheer={cheerWin} />
               ))}
-            </View>
-
-            <View style={styles.encourageCard}>
-              <Text style={styles.encourageEmoji}>🌟</Text>
-              <Text style={styles.encourageTitle}>Share Your Win</Text>
-              <Text style={styles.encourageText}>
-                When you complete a challenge or habit,{'\n'}your win can inspire someone else.
-              </Text>
             </View>
 
             <View style={{ height: 20 }} />
@@ -117,18 +268,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '800' as const,
     color: colors.text,
   },
-  comingSoonPill: {
-    backgroundColor: colors.accentLight,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  comingSoonText: {
-    fontSize: 11,
-    fontWeight: '700' as const,
-    color: colors.primary,
-    letterSpacing: 0.3,
-  },
   subtitle: {
     fontSize: 14,
     color: colors.textSecondary,
@@ -162,6 +301,102 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 12,
     color: colors.textMuted,
   },
+  composeButton: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    backgroundColor: colors.accentLight,
+    borderRadius: 18,
+    padding: 20,
+    alignItems: 'center' as const,
+    flexDirection: 'row' as const,
+    justifyContent: 'center' as const,
+    gap: 10,
+  },
+  composeButtonEmoji: {
+    fontSize: 22,
+  },
+  composeButtonText: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: colors.text,
+  },
+  composeCard: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    backgroundColor: colors.card,
+    borderRadius: 18,
+    padding: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  composeHeader: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    marginBottom: 14,
+  },
+  composeTitle: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: colors.text,
+  },
+  composeInput: {
+    backgroundColor: colors.cardAlt,
+    borderRadius: 14,
+    padding: 14,
+    fontSize: 15,
+    color: colors.text,
+    minHeight: 80,
+    textAlignVertical: 'top' as const,
+    marginBottom: 12,
+  },
+  areaSelector: {
+    marginBottom: 14,
+  },
+  areaPill: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: colors.cardAlt,
+    marginRight: 8,
+  },
+  areaPillActive: {
+    backgroundColor: colors.primarySoft,
+  },
+  areaPillEmoji: {
+    fontSize: 14,
+  },
+  areaPillText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: colors.textSecondary,
+  },
+  areaPillTextActive: {
+    color: colors.primary,
+  },
+  postButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 14,
+    paddingVertical: 14,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 8,
+  },
+  postButtonDisabled: {
+    opacity: 0.5,
+  },
+  postButtonText: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: colors.white,
+  },
   feedHeader: {
     flexDirection: 'row' as const,
     justifyContent: 'space-between' as const,
@@ -194,29 +429,5 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   winsList: {
     paddingHorizontal: 20,
     gap: 12,
-  },
-  encourageCard: {
-    marginHorizontal: 20,
-    marginTop: 24,
-    backgroundColor: colors.accentLight,
-    borderRadius: 18,
-    padding: 24,
-    alignItems: 'center' as const,
-  },
-  encourageEmoji: {
-    fontSize: 32,
-    marginBottom: 10,
-  },
-  encourageTitle: {
-    fontSize: 16,
-    fontWeight: '700' as const,
-    color: colors.text,
-    marginBottom: 6,
-  },
-  encourageText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    textAlign: 'center' as const,
-    lineHeight: 19,
   },
 });
