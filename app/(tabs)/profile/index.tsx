@@ -14,16 +14,17 @@ import {
   Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Flame, Award, Calendar, TrendingUp, Star, LogOut, X, Settings, Check, Sun, Moon, Smartphone, Bell, Clock, ChevronUp, ChevronDown } from 'lucide-react-native';
+import { Flame, Award, Calendar, TrendingUp, Star, LogOut, X, Settings, Check, Sun, Moon, Smartphone, Bell, Clock, ChevronUp, ChevronDown, Heart, Crown } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useColors, useTheme, ThemePreference } from '@/providers/ThemeProvider';
 import { useApp } from '@/providers/AppProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import { FOCUS_AREAS } from '@/mocks/data';
 import { ThemeColors } from '@/constants/colors';
+import PaywallModal from '@/components/PaywallModal';
 
 export default function ProfileScreen() {
-  const { profile, badges, newlyEarnedBadge, clearNewlyEarnedBadge, updateProfileName, notificationSettings, updateNotificationSettings } = useApp();
+  const { profile, badges, newlyEarnedBadge, clearNewlyEarnedBadge, updateProfileName, notificationSettings, updateNotificationSettings, gentleMode, premium, setGentleMode, setPremium } = useApp();
   const { user, logout } = useAuth();
   const colors = useColors();
   const { themePreference, setTheme } = useTheme();
@@ -33,6 +34,7 @@ export default function ProfileScreen() {
   const [editName, setEditName] = useState('');
   const [localHour, setLocalHour] = useState(notificationSettings.reminderHour);
   const [localMinute, setLocalMinute] = useState(notificationSettings.reminderMinute);
+  const [showPaywall, setShowPaywall] = useState(false);
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
@@ -100,7 +102,21 @@ export default function ProfileScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [localMinute, notificationSettings.dailyReminderEnabled, updateNotificationSettings]);
 
+  const handleToggleGentleMode = useCallback((value: boolean) => {
+    if (value && !premium.isPremium) {
+      setShowPaywall(true);
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setGentleMode(value);
+  }, [premium.isPremium, setGentleMode]);
 
+  const handleSubscribe = useCallback(() => {
+    setPremium(true);
+    setShowPaywall(false);
+    setGentleMode(true);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, [setPremium, setGentleMode]);
 
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -318,6 +334,44 @@ export default function ProfileScreen() {
                   </View>
                 </View>
 
+                <Text style={styles.settingsSectionLabel}>Wellness</Text>
+                <View style={styles.settingsCard}>
+                  <View style={styles.reminderToggleRow}>
+                    <View style={styles.reminderLabelRow}>
+                      <Heart size={18} color={colors.secondary} />
+                      <View style={styles.gentleLabelWrap}>
+                        <Text style={styles.settingsFieldLabel}>Gentle Mode</Text>
+                        <Text style={styles.gentleSubLabel}>Low energy / rest days</Text>
+                      </View>
+                    </View>
+                    <View style={styles.gentleToggleRow}>
+                      {!premium.isPremium && (
+                        <View style={styles.premiumBadge}>
+                          <Crown size={11} color={colors.accent} />
+                          <Text style={styles.premiumBadgeText}>PRO</Text>
+                        </View>
+                      )}
+                      <Switch
+                        testID="gentle-mode-toggle"
+                        value={gentleMode.gentleModeEnabled}
+                        onValueChange={handleToggleGentleMode}
+                        trackColor={{ false: colors.borderLight, true: colors.secondaryLight }}
+                        thumbColor={gentleMode.gentleModeEnabled ? colors.secondary : colors.textMuted}
+                      />
+                    </View>
+                  </View>
+                  {gentleMode.gentleModeEnabled && (
+                    <View style={styles.gentleInfoSection}>
+                      <Text style={styles.gentleInfoText}>
+                        When enabled, the app uses supportive language and lets you take rest days without breaking streaks.
+                      </Text>
+                      <Text style={styles.gentlePrivacy}>
+                        Privacy: only the toggle state is stored locally on your device.
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
                 <Text style={styles.settingsSectionLabel}>Notifications</Text>
                 <View style={styles.settingsCard}>
                   <View style={styles.reminderToggleRow}>
@@ -423,6 +477,11 @@ export default function ProfileScreen() {
           </KeyboardAvoidingView>
         </Pressable>
       </Modal>
+      <PaywallModal
+        visible={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        onSubscribe={handleSubscribe}
+      />
     </View>
   );
 }
@@ -972,6 +1031,51 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textMuted,
     textAlign: 'center' as const,
     marginTop: 10,
+    fontStyle: 'italic' as const,
+  },
+  gentleLabelWrap: {
+    flex: 1,
+  },
+  gentleSubLabel: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  gentleToggleRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+  },
+  premiumBadge: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 3,
+    backgroundColor: colors.accentLight,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  premiumBadgeText: {
+    fontSize: 10,
+    fontWeight: '800' as const,
+    color: colors.accent,
+    letterSpacing: 0.5,
+  },
+  gentleInfoSection: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  gentleInfoText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 19,
+    marginBottom: 8,
+  },
+  gentlePrivacy: {
+    fontSize: 11,
+    color: colors.textMuted,
     fontStyle: 'italic' as const,
   },
 });

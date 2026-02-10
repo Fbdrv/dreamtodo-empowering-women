@@ -103,3 +103,16 @@ export interface DailyProgress {
   challengeCompleted: boolean;
   points: number;
 }
+
+export type EnergyState = 'normal' | 'low';
+
+export interface GentleModeSettings {
+  gentleModeEnabled: boolean;
+  gentleModeEnabledAt?: string;
+  energyState: EnergyState;
+  restDays: string[];
+}
+
+export interface PremiumStatus {
+  isPremium: boolean;
+}

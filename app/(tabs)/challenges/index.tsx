@@ -14,17 +14,18 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Plus, Zap, Check, Clock, Trash2, X } from 'lucide-react-native';
+import { Plus, Zap, Check, Clock, Trash2, X, Heart } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/providers/ThemeProvider';
 import { useApp } from '@/providers/AppProvider';
 import { Goal, Challenge } from '@/types';
 import { ThemeColors } from '@/constants/colors';
 
+
 const DURATION_OPTIONS = ['5 min', '10 min', '15 min', '30 min', '1 hour'];
 
 export default function ChallengesScreen() {
-  const { challenges, goals, profile, addChallenge, completeChallenge, deleteChallenge } = useApp();
+  const { challenges, goals, profile, addChallenge, completeChallenge, deleteChallenge, gentleMode } = useApp();
   const colors = useColors();
   const [showAddChallenge, setShowAddChallenge] = useState(false);
   const [selectedGoalFilter, setSelectedGoalFilter] = useState<string | null>(null);
@@ -94,6 +95,18 @@ export default function ChallengesScreen() {
   const completedChallenges = filteredChallenges.filter(c => c.isCompleted);
 
   const getGoal = (goalId: string): Goal | undefined => goals.find(g => g.id === goalId);
+  const isGentleMode = gentleMode.gentleModeEnabled;
+
+  const gentleDuration = (duration: string): string => {
+    if (!isGentleMode) return duration;
+    const match = duration.match(/(\d+)\s*(min|hour)/i);
+    if (!match) return duration;
+    const val = parseInt(match[1], 10);
+    const unit = match[2].toLowerCase();
+    if (unit === 'hour') return `${Math.max(5, Math.round(val * 60 / 3))} min`;
+    if (val > 5) return `${Math.max(2, Math.round(val / 2))} min`;
+    return '2 min';
+  };
 
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -106,7 +119,9 @@ export default function ChallengesScreen() {
               <View>
                 <Text style={styles.title}>Challenges</Text>
                 <Text style={styles.subtitle}>
-                  {completedChallenges.length} completed, {pendingChallenges.length} to go
+                  {isGentleMode
+                    ? 'Do what feels right today'
+                    : `${completedChallenges.length} completed, ${pendingChallenges.length} to go`}
                 </Text>
               </View>
               <View style={styles.pointsBadge}>
@@ -141,6 +156,13 @@ export default function ChallengesScreen() {
                   </TouchableOpacity>
                 ))}
               </ScrollView>
+            )}
+
+            {isGentleMode && pendingChallenges.length > 0 && (
+              <View style={styles.gentleMinWin}>
+                <Heart size={14} color={colors.secondary} />
+                <Text style={styles.gentleMinWinText}>Minimum win: try just 2 minutes on any challenge</Text>
+              </View>
             )}
 
             {challenges.length === 0 ? (
@@ -187,7 +209,14 @@ export default function ChallengesScreen() {
                             <View style={styles.challengeFooter}>
                               <View style={styles.durationBadge}>
                                 <Clock size={12} color={colors.textMuted} />
-                                <Text style={styles.durationText}>{challenge.duration}</Text>
+                                <Text style={styles.durationText}>
+                                  {isGentleMode ? gentleDuration(challenge.duration) : challenge.duration}
+                                </Text>
+                                {isGentleMode && (
+                                  <View style={styles.gentleDurationHint}>
+                                    <Text style={styles.gentleDurationHintText}>gentle</Text>
+                                  </View>
+                                )}
                               </View>
                               <TouchableOpacity
                                 style={styles.completeBtn}
@@ -666,5 +695,37 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 16,
     fontWeight: '700' as const,
     color: colors.white,
+  },
+  gentleMinWin: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+    backgroundColor: colors.secondaryLight,
+    marginHorizontal: 20,
+    marginTop: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.secondary + '30',
+  },
+  gentleMinWinText: {
+    fontSize: 13,
+    fontWeight: '500' as const,
+    color: colors.secondary,
+    flex: 1,
+    fontStyle: 'italic' as const,
+  },
+  gentleDurationHint: {
+    backgroundColor: colors.secondaryLight,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 4,
+  },
+  gentleDurationHintText: {
+    fontSize: 10,
+    fontWeight: '600' as const,
+    color: colors.secondary,
   },
 });

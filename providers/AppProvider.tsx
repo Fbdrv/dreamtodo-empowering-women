@@ -13,6 +13,8 @@ import {
   UserProfile,
   EarnedBadge,
   BadgeDefinition,
+  GentleModeSettings,
+  PremiumStatus,
 } from '@/types';
 import { BADGE_DEFINITIONS } from '@/mocks/data';
 import {
@@ -34,6 +36,8 @@ interface AppState {
   earnedBadges: EarnedBadge[];
   dailyProgress: DailyProgress;
   notificationSettings: NotificationSettings;
+  gentleMode: GentleModeSettings;
+  premium: PremiumStatus;
 }
 
 const defaultProfile: UserProfile = {
@@ -47,6 +51,16 @@ const defaultProfile: UserProfile = {
   challengesCompleted: 0,
   joinedAt: new Date().toISOString().split('T')[0],
   hasCompletedOnboarding: false,
+};
+
+const defaultGentleMode: GentleModeSettings = {
+  gentleModeEnabled: false,
+  energyState: 'normal',
+  restDays: [],
+};
+
+const defaultPremium: PremiumStatus = {
+  isPremium: false,
 };
 
 const getDefaultState = (): AppState => ({
@@ -64,6 +78,8 @@ const getDefaultState = (): AppState => ({
     points: 0,
   },
   notificationSettings: DEFAULT_NOTIFICATION_SETTINGS,
+  gentleMode: defaultGentleMode,
+  premium: defaultPremium,
 });
 
 export const [AppProvider, useApp] = createContextHook(() => {
@@ -97,6 +113,8 @@ export const [AppProvider, useApp] = createContextHook(() => {
             ...parsed,
             challenges: migratedChallenges,
             profile: { ...defaultState.profile, ...parsed.profile },
+            gentleMode: { ...defaultGentleMode, ...(parsed as any).gentleMode },
+            premium: { ...defaultPremium, ...(parsed as any).premium },
           };
         }
       } catch (e) {
@@ -125,6 +143,8 @@ export const [AppProvider, useApp] = createContextHook(() => {
         earnedBadges: newState.earnedBadges,
         dailyProgress: newState.dailyProgress,
         notificationSettings: newState.notificationSettings,
+        gentleMode: newState.gentleMode,
+        premium: newState.premium,
       }));
       console.log('[app] Saved state locally for user:', user?.id);
       return newState;
@@ -302,17 +322,39 @@ export const [AppProvider, useApp] = createContextHook(() => {
     if (!habit) return;
     
     const isCompleted = habit.completedDates.includes(today);
+    const restDays = state.gentleMode.restDays;
+    
+    const computeStreak = (dates: string[]): number => {
+      if (dates.length === 0) return 0;
+      const sorted = [...dates].sort().reverse();
+      if (sorted[0] !== today) return 0;
+      let streak = 1;
+      let current = new Date(today);
+      for (let i = 1; i < 365; i++) {
+        current.setDate(current.getDate() - 1);
+        const prev = current.toISOString().split('T')[0];
+        if (sorted.includes(prev)) {
+          streak++;
+        } else if (restDays.includes(prev)) {
+          continue;
+        } else {
+          break;
+        }
+      }
+      return streak;
+    };
     
     const newHabits = state.habits.map(h => {
       if (h.id !== habitId) return h;
       const newDates = isCompleted
         ? h.completedDates.filter(d => d !== today)
         : [...h.completedDates, today];
+      const newStreak = computeStreak(newDates);
       return {
         ...h,
         completedDates: newDates,
-        streak: isCompleted ? Math.max(0, h.streak - 1) : h.streak + 1,
-        bestStreak: isCompleted ? h.bestStreak : Math.max(h.bestStreak, h.streak + 1),
+        streak: newStreak,
+        bestStreak: Math.max(h.bestStreak, newStreak),
       };
     });
 
@@ -381,6 +423,41 @@ export const [AppProvider, useApp] = createContextHook(() => {
     };
     persist(updated, true);
   }, [state, persist]);
+
+  const setGentleMode = useCallback((enabled: boolean) => {
+    const newGentleMode: GentleModeSettings = {
+      ...state.gentleMode,
+      gentleModeEnabled: enabled,
+      gentleModeEnabledAt: enabled ? new Date().toISOString() : state.gentleMode.gentleModeEnabledAt,
+      energyState: enabled ? 'low' : 'normal',
+    };
+    console.log('[app] Gentle mode:', enabled ? 'enabled' : 'disabled');
+    const updated = { ...state, gentleMode: newGentleMode };
+    persist(updated, true);
+  }, [state, persist]);
+
+  const markRestDay = useCallback(() => {
+    const today = new Date().toISOString().split('T')[0];
+    if (state.gentleMode.restDays.includes(today)) return;
+    const newGentleMode = {
+      ...state.gentleMode,
+      restDays: [...state.gentleMode.restDays, today],
+    };
+    console.log('[app] Marked rest day:', today);
+    const updated = { ...state, gentleMode: newGentleMode };
+    persist(updated, true);
+  }, [state, persist]);
+
+  const setPremium = useCallback((isPremium: boolean) => {
+    console.log('[app] Premium status:', isPremium);
+    const updated = { ...state, premium: { isPremium } };
+    persist(updated, true);
+  }, [state, persist]);
+
+  const isRestDay = useCallback((date?: string) => {
+    const d = date ?? new Date().toISOString().split('T')[0];
+    return state.gentleMode.restDays.includes(d);
+  }, [state.gentleMode.restDays]);
 
   const updateNotificationSettings = useCallback(async (settings: Partial<NotificationSettings>) => {
     const newSettings = { ...state.notificationSettings, ...settings };
@@ -456,5 +533,11 @@ export const [AppProvider, useApp] = createContextHook(() => {
     updateProfileName,
     notificationSettings: state.notificationSettings,
     updateNotificationSettings,
+    gentleMode: state.gentleMode,
+    premium: state.premium,
+    setGentleMode,
+    markRestDay,
+    setPremium,
+    isRestDay,
   };
 });

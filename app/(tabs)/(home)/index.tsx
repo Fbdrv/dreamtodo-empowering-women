@@ -7,7 +7,7 @@ import {
   Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Flame, Sparkles, TrendingUp } from 'lucide-react-native';
+import { Flame, Sparkles, TrendingUp, Heart } from 'lucide-react-native';
 import { useColors } from '@/providers/ThemeProvider';
 import { useApp } from '@/providers/AppProvider';
 import { AFFIRMATIONS } from '@/mocks/data';
@@ -15,6 +15,7 @@ import ProgressRing from '@/components/ProgressRing';
 import ChallengeCard from '@/components/ChallengeCard';
 import HabitCard from '@/components/HabitCard';
 import DreamCard from '@/components/DreamCard';
+import GentleModeBanner from '@/components/GentleModeBanner';
 import { ThemeColors } from '@/constants/colors';
 
 export default function HomeScreen() {
@@ -26,6 +27,9 @@ export default function HomeScreen() {
     todayCompletedHabits,
     toggleHabitComplete,
     completeChallenge,
+    gentleMode,
+    markRestDay,
+    isRestDay,
   } = useApp();
 
   const colors = useColors();
@@ -54,6 +58,8 @@ export default function HomeScreen() {
   const pendingChallenge = challenges.find(c => !c.isCompleted);
   const habitProgress = habits.length > 0 ? todayCompletedHabits / habits.length : 0;
   const displayName = profile.name || 'Friend';
+  const isGentleMode = gentleMode.gentleModeEnabled;
+  const todayIsRestDay = isRestDay();
 
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -77,13 +83,22 @@ export default function HomeScreen() {
                 </View>
               </View>
               <View style={styles.affirmationCard}>
-                <Sparkles size={16} color={colors.primary} />
-                <Text style={styles.affirmationText}>{todayAffirmation}</Text>
+                <Sparkles size={16} color={isGentleMode ? colors.secondary : colors.primary} />
+                <Text style={[styles.affirmationText, isGentleMode && { color: colors.secondary }]}>
+                  {isGentleMode ? 'Be kind to yourself today. Every small step counts.' : todayAffirmation}
+                </Text>
               </View>
             </View>
 
+            {isGentleMode && (
+              <GentleModeBanner
+                onRestDay={markRestDay}
+                isRestDay={todayIsRestDay}
+              />
+            )}
+
             <View style={styles.progressSection}>
-              <Text style={styles.sectionTitle}>Today&apos;s Progress</Text>
+              <Text style={styles.sectionTitle}>{isGentleMode ? 'Your gentle progress' : "Today's Progress"}</Text>
               <View style={styles.progressRow}>
                 <ProgressRing
                   progress={habitProgress}
@@ -139,7 +154,15 @@ export default function HomeScreen() {
             )}
 
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Today&apos;s Habits</Text>
+              <Text style={styles.sectionTitle}>
+                {isGentleMode ? 'One tiny step is enough' : "Today's Habits"}
+              </Text>
+              {isGentleMode && habits.filter(h => h.isActive).length > 0 && (
+                <View style={styles.gentleHint}>
+                  <Heart size={12} color={colors.secondary} />
+                  <Text style={styles.gentleHintText}>Pick just one if that feels right</Text>
+                </View>
+              )}
               <View style={styles.habitsList}>
                 {habits.filter(h => h.isActive).map(habit => (
                   <HabitCard key={habit.id} habit={habit} onToggle={toggleHabitComplete} />
@@ -289,5 +312,22 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   challengeCardWrapper: {
     marginTop: 12,
+  },
+  gentleHint: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    backgroundColor: colors.secondaryLight,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  gentleHintText: {
+    fontSize: 13,
+    color: colors.secondary,
+    fontWeight: '500' as const,
+    fontStyle: 'italic' as const,
   },
 });
