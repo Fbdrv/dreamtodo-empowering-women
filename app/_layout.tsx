@@ -76,6 +76,13 @@ function RootLayoutNav() {
             gestureEnabled: false,
           }}
         />
+        <Stack.Screen
+          name="settings"
+          options={{
+            headerShown: true,
+            title: 'Settings',
+          }}
+        />
       </Stack>
     </AuthGate>
   );
