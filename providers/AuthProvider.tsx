@@ -25,12 +25,21 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+    supabase.auth.getSession().then(({ data: { session: currentSession }, error }) => {
+      if (error) {
+        console.log('[auth] getSession error:', error.message);
+      }
       console.log('[auth] Initial session:', currentSession ? 'exists' : 'none');
+      if (currentSession?.user) {
+        console.log('[auth] User found:', currentSession.user.email);
+      }
       setSession(currentSession);
       if (currentSession?.user) {
         setUser(mapSupabaseUser(currentSession.user));
       }
+      setIsReady(true);
+    }).catch((e) => {
+      console.log('[auth] getSession fatal error:', e);
       setIsReady(true);
     });
 
