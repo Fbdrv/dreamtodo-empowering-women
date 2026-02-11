@@ -13,9 +13,14 @@ import { useAuth } from './AuthProvider';
 const ENTITLEMENT_ID = 'pro';
 
 function getRCApiKey(): string | undefined {
-  if (Platform.OS === 'web') {
-    console.log('[rc] Web platform detected, RevenueCat not supported');
-    return undefined;
+  if (__DEV__ || Platform.OS === 'web') {
+    const testKey = process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY;
+    if (testKey && testKey.trim().length > 0 && testKey !== 'undefined') {
+      console.log('[rc] Using Test Store API key for dev/web');
+      return testKey;
+    }
+    console.log('[rc] No Test Store key available for dev/web');
+    if (Platform.OS === 'web') return undefined;
   }
   const key = Platform.select({
     ios: process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY,

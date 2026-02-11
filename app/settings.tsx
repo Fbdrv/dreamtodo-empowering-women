@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,9 +8,6 @@ import {
   TextInput,
   Switch,
   Platform,
-  Modal,
-  Pressable,
-  Animated,
 } from 'react-native';
 import { Stack } from 'expo-router';
 import {
@@ -24,17 +21,12 @@ import {
   ChevronDown,
   Heart,
   Crown,
-  Shield,
-  Sparkles,
-  Zap,
-  Leaf,
-  X,
-  RotateCcw,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useColors, useTheme, ThemePreference } from '@/providers/ThemeProvider';
 import { useApp } from '@/providers/AppProvider';
 import { ThemeColors } from '@/constants/colors';
+import PaywallModal from '@/components/PaywallModal';
 
 export default function SettingsScreen() {
   const {
@@ -54,20 +46,6 @@ export default function SettingsScreen() {
   const [localHour, setLocalHour] = useState(notificationSettings.reminderHour);
   const [localMinute, setLocalMinute] = useState(notificationSettings.reminderMinute);
   const [showGentlePaywall, setShowGentlePaywall] = useState(false);
-  const paywallFade = useState(new Animated.Value(0))[0];
-  const paywallScale = useState(new Animated.Value(0.9))[0];
-
-  useEffect(() => {
-    if (showGentlePaywall) {
-      Animated.parallel([
-        Animated.timing(paywallFade, { toValue: 1, duration: 250, useNativeDriver: true }),
-        Animated.spring(paywallScale, { toValue: 1, friction: 8, useNativeDriver: true }),
-      ]).start();
-    } else {
-      paywallFade.setValue(0);
-      paywallScale.setValue(0.9);
-    }
-  }, [showGentlePaywall, paywallFade, paywallScale]);
 
   const handleSaveName = useCallback(() => {
     if (editName.trim()) {
@@ -117,17 +95,11 @@ export default function SettingsScreen() {
     setGentleMode(value);
   }, [isPremium, setGentleMode]);
 
-  const onUnlockGentleMode = useCallback(() => {
-    // TODO: Connect to RevenueCat purchase flow here
-    // For now, this is a placeholder that logs the intent
-    console.log('[settings] onUnlockGentleMode triggered — connect RevenueCat purchase here');
+  const handlePurchaseSuccess = useCallback(() => {
+    console.log('[settings] Purchase successful, enabling gentle mode');
     setShowGentlePaywall(false);
-  }, []);
-
-  const handleRestorePurchases = useCallback(() => {
-    // TODO: Connect to RevenueCat restore flow here
-    console.log('[settings] handleRestorePurchases triggered — connect RevenueCat restore here');
-  }, []);
+    setGentleMode(true);
+  }, [setGentleMode]);
 
   const handleDismissPaywall = useCallback(() => {
     setShowGentlePaywall(false);
@@ -139,14 +111,6 @@ export default function SettingsScreen() {
     { key: 'system', label: 'System', icon: <Smartphone size={18} color={themePreference === 'system' ? colors.primary : colors.textMuted} /> },
     { key: 'light', label: 'Light', icon: <Sun size={18} color={themePreference === 'light' ? colors.primary : colors.textMuted} /> },
     { key: 'dark', label: 'Dark', icon: <Moon size={18} color={themePreference === 'dark' ? colors.primary : colors.textMuted} /> },
-  ];
-
-  const gentleBenefits = [
-    { icon: <Heart size={20} color={colors.secondary} />, label: 'Supportive language on low-energy days' },
-    { icon: <Shield size={20} color={colors.primary} />, label: 'Rest days that protect your streaks' },
-    { icon: <Sparkles size={20} color={colors.accent} />, label: 'Personalized wellness check-ins' },
-    { icon: <Zap size={20} color={colors.warning} />, label: 'Flexible habit goals when you need it' },
-    { icon: <Leaf size={20} color={colors.success} />, label: 'Mindful progress tracking' },
   ];
 
   return (
@@ -329,65 +293,11 @@ export default function SettingsScreen() {
         <View style={{ height: 50 }} />
       </ScrollView>
 
-      <Modal visible={showGentlePaywall} transparent animationType="none">
-        <Animated.View style={[styles.paywallOverlay, { opacity: paywallFade }]}>
-          <Pressable style={styles.paywallOverlayPress} onPress={handleDismissPaywall}>
-            <Animated.View style={[styles.paywallContent, { transform: [{ scale: paywallScale }] }]}>
-              <Pressable onPress={() => {}}>
-                <TouchableOpacity style={styles.paywallCloseBtn} onPress={handleDismissPaywall}>
-                  <X size={20} color={colors.textMuted} />
-                </TouchableOpacity>
-
-                <View style={styles.paywallIconCircle}>
-                  <Heart size={32} color={colors.secondary} />
-                </View>
-
-                <Text style={styles.paywallTitle}>Unlock Gentle Mode</Text>
-                <Text style={styles.paywallSubtitle}>
-                  A premium feature designed for your wellbeing on low-energy days.
-                </Text>
-
-                <View style={styles.paywallBenefits}>
-                  {gentleBenefits.map((b, i) => (
-                    <View key={i} style={styles.paywallBenefitRow}>
-                      <View style={styles.paywallBenefitIcon}>{b.icon}</View>
-                      <Text style={styles.paywallBenefitText}>{b.label}</Text>
-                    </View>
-                  ))}
-                </View>
-
-                <TouchableOpacity
-                  testID="unlock-gentle-mode-btn"
-                  style={styles.paywallCta}
-                  onPress={onUnlockGentleMode}
-                  activeOpacity={0.8}
-                >
-                  <Crown size={18} color={colors.white} />
-                  <Text style={styles.paywallCtaText}>Unlock Gentle Mode</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  testID="not-now-btn"
-                  style={styles.paywallSecondary}
-                  onPress={handleDismissPaywall}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.paywallSecondaryText}>Not now</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  testID="restore-purchases-btn"
-                  style={styles.paywallRestore}
-                  onPress={handleRestorePurchases}
-                >
-                  <RotateCcw size={13} color={colors.textMuted} />
-                  <Text style={styles.paywallRestoreText}>Restore purchases</Text>
-                </TouchableOpacity>
-              </Pressable>
-            </Animated.View>
-          </Pressable>
-        </Animated.View>
-      </Modal>
+      <PaywallModal
+        visible={showGentlePaywall}
+        onClose={handleDismissPaywall}
+        onPurchaseSuccess={handlePurchaseSuccess}
+      />
     </View>
   );
 }
@@ -610,120 +520,5 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   themeOptionTextActive: {
     color: colors.primary,
   },
-  paywallOverlay: {
-    flex: 1,
-    backgroundColor: colors.overlay,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-  },
-  paywallOverlayPress: {
-    flex: 1,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-    width: '100%',
-    padding: 24,
-  },
-  paywallContent: {
-    backgroundColor: colors.card,
-    borderRadius: 28,
-    padding: 28,
-    width: '100%',
-    maxWidth: 360,
-  },
-  paywallCloseBtn: {
-    position: 'absolute' as const,
-    top: -8,
-    right: -8,
-    zIndex: 1,
-    width: 32,
-    height: 32,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-  },
-  paywallIconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.secondaryLight,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    alignSelf: 'center' as const,
-    marginBottom: 16,
-    marginTop: 8,
-  },
-  paywallTitle: {
-    fontSize: 24,
-    fontWeight: '800' as const,
-    color: colors.text,
-    textAlign: 'center' as const,
-    marginBottom: 8,
-  },
-  paywallSubtitle: {
-    fontSize: 15,
-    color: colors.textSecondary,
-    textAlign: 'center' as const,
-    lineHeight: 22,
-    marginBottom: 24,
-    paddingHorizontal: 8,
-  },
-  paywallBenefits: {
-    gap: 14,
-    marginBottom: 28,
-  },
-  paywallBenefitRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 14,
-  },
-  paywallBenefitIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.cardAlt,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-  },
-  paywallBenefitText: {
-    fontSize: 14,
-    fontWeight: '500' as const,
-    color: colors.text,
-    flex: 1,
-  },
-  paywallCta: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    gap: 8,
-    backgroundColor: colors.primary,
-    borderRadius: 24,
-    paddingVertical: 16,
-    marginBottom: 12,
-  },
-  paywallCtaText: {
-    fontSize: 17,
-    fontWeight: '700' as const,
-    color: colors.white,
-  },
-  paywallSecondary: {
-    alignItems: 'center' as const,
-    paddingVertical: 12,
-    marginBottom: 8,
-  },
-  paywallSecondaryText: {
-    fontSize: 15,
-    fontWeight: '600' as const,
-    color: colors.textSecondary,
-  },
-  paywallRestore: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    gap: 6,
-    paddingVertical: 6,
-  },
-  paywallRestoreText: {
-    fontSize: 13,
-    fontWeight: '500' as const,
-    color: colors.textMuted,
-  },
+
 });
