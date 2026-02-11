@@ -76,7 +76,7 @@ export const [RevenueCatProvider, useRevenueCat] = createContextHook(() => {
   }, [isConfigured, user]);
 
   const offeringsQuery = useQuery({
-    queryKey: ['rc_offerings'],
+    queryKey: ['rc_offerings', isConfigured],
     queryFn: async (): Promise<PurchasesOfferings | null> => {
       if (!isConfigured) return null;
       console.log('[rc] Fetching offerings...');
@@ -90,7 +90,7 @@ export const [RevenueCatProvider, useRevenueCat] = createContextHook(() => {
   });
 
   const customerInfoQuery = useQuery({
-    queryKey: ['rc_customer_info'],
+    queryKey: ['rc_customer_info', isConfigured],
     queryFn: async (): Promise<CustomerInfo | null> => {
       if (!isConfigured) return null;
       console.log('[rc] Fetching customer info...');
