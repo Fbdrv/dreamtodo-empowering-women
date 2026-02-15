@@ -1,3 +1,76 @@
+# DreamToDo — From Dreaming to Doing
+
+Cross-platform mobile app (iOS/Android) that helps ambitious women turn inspiration into consistent micro-actions through **goals**, **challenges**, **habits**, and **light gamification** (points + badges).
+
+## Why I built this (and what I researched)
+
+This project was built as a **product + engineering exploration of AI-assisted mobile development**. The goal wasn’t to “generate an app,” but to evaluate how far AI tools can go *when paired with real software engineering practices*:
+
+- Translating a narrative product brief into concrete UX flows and data models
+- Iterating on real bugs (routing issues, state leaks, scoring exploits)
+- Designing state persistence, theming, and notification scheduling
+- Writing technical documentation and a monetization plan suitable for a production roadmap
+
+## What’s in the MVP
+
+- **Onboarding**: choose focus areas and dream prompts (gated so new users set direction first)
+- **Goals**: create up to **4 goals**, each with emoji + color
+- **Challenges**: create micro-challenges linked to goals; complete to earn points
+- **Habits**: create daily/weekly habits; toggle completion; points/wins update (and reverse if undone)
+- **Badges**: dynamically earned (no prefilled achievements)
+- **Push notifications**: opt-in daily reminder scheduling (Expo Notifications)
+- **Theme**: light/dark + System mode (auto-follows device theme)
+- **Community**: labeled “Coming soon” preview screen (explicitly post-MVP)
+
+## Tech stack
+
+- **React Native** + **Expo**
+- **Expo Router** (file-based navigation)
+- **TypeScript**
+- **React Query**
+- **AsyncStorage** (per-user app state persistence)
+- **Expo SecureStore** (prototype local auth)
+- **expo-notifications** (local reminders)
+
+## Architecture (high level)
+
+- **Routing & gating**: `app/_layout.tsx` routes users through login → onboarding → tabs
+- **Auth**: `providers/AuthProvider.tsx` (prototype local auth stored in SecureStore)
+- **App state**: `providers/AppProvider.tsx` (per-user state stored under `dreaming_to_doing_app_<userId>`)
+- **Theme**: `providers/ThemeProvider.tsx` + `constants/colors.ts`
+- **Notifications**: `lib/notifications.ts`
+
+More detail: see `TECHNICAL_DOCUMENTATION.md`.
+
+## Getting started (local)
+
+Prereqs: Node.js + Bun
+
+```bash
+bun i
+bun run start
+```
+
+Web preview:
+
+```bash
+bun run start-web
+```
+
+## Notes on builds (native features)
+
+Some features (notably **in-app subscriptions via RevenueCat**) require an **EAS dev build** (not Expo Go).
+
+## Monetization plan (planned)
+
+- **DreamToDo Pro**: **$4.99/month** (RevenueCat)
+- Initial paid feature: **Gentle Mode** (low-energy/period days support)
+- Future premium expansions: guided programs, deeper insights, smarter reminders, optional iOS Health/HealthKit integration
+
+## Credits
+
+Built with Expo tooling and an AI-assisted workflow (Cursor + Rork). Feature selection, architecture decisions, debugging, and iteration were driven by product goals and engineering validation.
+
 # Welcome to your Rork app
 
 ## Project info
